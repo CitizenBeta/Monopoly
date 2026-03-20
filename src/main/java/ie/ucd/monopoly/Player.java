@@ -27,10 +27,10 @@ public class Player {
 
     public void play(){
         if(usedCardNumberThisTurn< MAXIMAL_CARDS_USED_PER_TURN){
-            System.out.println("You've already exerted 3 cards this turn!");
-        }else {
             consumeCard(chooseCard());
             usedCardNumberThisTurn++;
+        }else {
+            System.out.println("You've already exerted 3 cards this turn!");
         }
     }
 
