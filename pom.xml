@@ -5,9 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>ie.ucd</groupId>
-    <artifactId>Monopoly</artifactId>
+    <artifactId>MonopolyDeal</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <name>Monopoly</name>
+    <name>MonopolyDeal</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -60,7 +60,7 @@
                         <!-- Default configuration for running with: mvn clean javafx:run -->
                         <id>default-cli</id>
                         <configuration>
-                            <mainClass>ie.ucd.monopoly/ie.ucd.monopoly.HelloApplication</mainClass>
+                            <mainClass>ie.ucd.monopolydeal/ie.ucd.monopolydeal.HelloApplication</mainClass>
                             <launcher>app</launcher>
                             <jlinkZipName>app</jlinkZipName>
                             <jlinkImageName>app</jlinkImageName>
