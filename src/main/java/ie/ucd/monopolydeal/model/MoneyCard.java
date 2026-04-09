@@ -1,20 +1,21 @@
 package ie.ucd.monopolydeal.model;
 
-public record MoneyCard(String name, int value) implements Card {
-    @Override
-    public String toString() {
-        return name + " [Money, " + value + "M]";
+public class MoneyCard implements Card {
+    private final String name;
+    private final int value;
+
+    public MoneyCard(String name, int value) {
+        this.name = name;
+        this.value = value;
     }
 
     @Override
-    public String getName(){
+    public String getName() {
         return name;
     }
 
     @Override
-    public int getValue(){
+    public int getValue() {
         return value;
     }
-
-
 }
