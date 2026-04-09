@@ -7,4 +7,6 @@ public class ActionCard extends Card {
         super(name, value);
         this.actionType = actionType;
     }
+
+
 }
