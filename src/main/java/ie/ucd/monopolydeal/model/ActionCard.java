@@ -8,5 +8,10 @@ public class ActionCard extends Card {
         this.actionType = actionType;
     }
 
+    public ActionType getActionType() {
+        return actionType;
+    }
+
+
 
 }
