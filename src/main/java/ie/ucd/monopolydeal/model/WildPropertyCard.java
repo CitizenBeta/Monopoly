@@ -1,29 +1,56 @@
 package ie.ucd.monopolydeal.model;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
-public class WildPropertyCard extends Card{
-    private  Color currentColor;
+public class WildPropertyCard implements Card {
+    private final String name;
     private final List<Color> possibleColors;
+    private final int bankValue;
+    private Color currentColor;
 
-    public WildPropertyCard(String name, int value, List<Color> possibleColors){
-        super(name,value);
-        this.possibleColors = possibleColors;
+    public WildPropertyCard(String name, List<Color> possibleColors, int bankValue) {
+        this.name = name;
+        this.possibleColors = new ArrayList<>(possibleColors);
+        this.bankValue = bankValue;
     }
 
-    public Color getCurrentColor(){
+    public List<Color> getPossibleColors() {
+        return Collections.unmodifiableList(possibleColors);
+    }
+
+    public Color getCurrentColor() {
         return currentColor;
     }
 
-    public void setColor(Color color){
-        if(possibleColors.contains(color)){
-            currentColor = color;
-        }else{
-            throw new RuntimeException("The color can not be used!");
+    public void setCurrentColor(Color currentColor) {
+        if (!possibleColors.contains(currentColor)) {
+            throw new IllegalArgumentException("Invalid color for this wild card.");
         }
+        this.currentColor = currentColor;
     }
 
-    public List<Color> getPossibleColors(){
-        return possibleColors;
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public int getBankValue() {
+        return bankValue;
+    }
+
+    @Override
+    public String getDetail() {
+        String colors = possibleColors.stream().map(Color::getName).collect(Collectors.joining("/"));
+        String current = currentColor == null ? "unplaced" : currentColor.getName();
+        return name + " [Wild, " + colors + ", current " + current + ", bank " + bankValue + "M]";
+    }
+
+    @Override
+    public String toString() {
+        return getDetail();
     }
 }
