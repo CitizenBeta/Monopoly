@@ -1,5 +1,8 @@
 package ie.ucd.monopolydeal.model;
 
+import java.util.Arrays;
+import java.util.List;
+
 public enum Color {
     BROWN("Brown", 2, new int[]{1, 2}),
     LIGHT_BLUE("Light Blue", 3, new int[]{1, 2, 3}),
@@ -22,21 +25,28 @@ public enum Color {
         this.rent = rent;
     }
 
+
+
     public String getName() {
         return name;
     }
 
-    public int getSetSize() {
+    public int getSize() {
         return setSize;
     }
 
     public int getRent(int ownedPropertyCount) {
-        if (ownedPropertyCount < 1) {
-            ownedPropertyCount = 1;
-        } else if (ownedPropertyCount > rent.length) {
+        if (ownedPropertyCount <= 0) {
+            return 0;
+        }
+
+         else if (ownedPropertyCount > rent.length) {
             ownedPropertyCount = rent.length;
         }
 
         return rent[ownedPropertyCount - 1];
+    }
+    public static List<Color> getColors() {
+        return Arrays.asList(values());
     }
 }
