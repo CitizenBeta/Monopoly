@@ -1,14 +1,37 @@
 package ie.ucd.monopolydeal.model;
 
-public class PropertyCard extends Card {
-    public Color color;
+public class PropertyCard implements Card {
+    private final String name;
+    private final int bankValue;
+    private final Color color;
 
-    public PropertyCard(String name, int value, Color color) {
+    public PropertyCard(String name, int bankValue, Color color) {
+        this.name = name;
+        this.bankValue = bankValue;
         this.color = color;
-        super(name, value);
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public int getBankValue() {
+        return bankValue;
+    }
+
+    @Override
+    public String getDetail() {
+        return name + " [Property, " + color.getName() + ", bank " + bankValue + "M]";
     }
 
     public Color getColor() {
         return color;
+    }
+
+    @Override
+    public String toString() {
+        return getDetail();
     }
 }
