@@ -2,6 +2,8 @@
 
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
@@ -39,6 +41,61 @@
                         <Label fx:id="statusState" text="Ready"/>
                     </children>
                 </HBox>
+
+                <GridPane hgap="12.0">
+                    <columnConstraints>
+                        <ColumnConstraints percentWidth="16.6667"/>
+                        <ColumnConstraints percentWidth="16.6667"/>
+                        <ColumnConstraints percentWidth="16.6667"/>
+                        <ColumnConstraints percentWidth="16.6667"/>
+                        <ColumnConstraints percentWidth="16.6667"/>
+                        <ColumnConstraints percentWidth="16.6667"/>
+                    </columnConstraints>
+
+                    <children>
+                        <VBox GridPane.columnIndex="0">
+                            <children>
+                                <Label text="Current Player"/>
+                                <Label fx:id="currentPlayer" text="-"/>
+                            </children>
+                        </VBox>
+
+                        <VBox GridPane.columnIndex="1">
+                            <children>
+                                <Label text="Actions"/>
+                                <Label fx:id="actions" text="0 / 3"/>
+                            </children>
+                        </VBox>
+
+                        <VBox GridPane.columnIndex="2">
+                            <children>
+                                <Label text="Hand Size"/>
+                                <Label fx:id="handCount" text="0"/>
+                            </children>
+                        </VBox>
+
+                        <VBox GridPane.columnIndex="3">
+                            <children>
+                                <Label text="Bank Total"/>
+                                <Label fx:id="bankTotal" text="0M"/>
+                            </children>
+                        </VBox>
+
+                        <VBox GridPane.columnIndex="4">
+                            <children>
+                                <Label text="Completed Sets"/>
+                                <Label fx:id="completedSets" text="0 / 3"/>
+                            </children>
+                        </VBox>
+
+                        <VBox GridPane.columnIndex="5">
+                            <children>
+                                <Label text="Draw / Discard"/>
+                                <Label fx:id="piles" text="0 / 0"/>
+                            </children>
+                        </VBox>
+                    </children>
+                </GridPane>
             </children>
         </VBox>
     </top>

@@ -14,6 +14,12 @@ public class GameController implements DecisionMaker {
     @FXML private Label statusTitle;
     @FXML private Label statusText;
     @FXML private Label statusState;
+    @FXML private Label currentPlayer;
+    @FXML private Label actions;
+    @FXML private Label handCount;
+    @FXML private Label bankTotal;
+    @FXML private Label completedSets;
+    @FXML private Label piles;
 
     @FXML
     private void initialize() {
@@ -24,7 +30,15 @@ public class GameController implements DecisionMaker {
         statusTitle.setText("Status");
         statusText.setText("Start a new game.");
         statusState.setText("Ready");
+        currentPlayer.setText("-");
+        actions.setText("0 / 3");
+        handCount.setText("0");
+        bankTotal.setText("0M");
+        completedSets.setText("0 / 3");
+        // piles.setText(game.getDeck().getDrawPileCount() + " / " + game.getDeck().getDiscardPileCount());
     }
+
+
 
     @Override public Player selectNextPlayer(Player currentPlayer, List<Player> players, String prompt) { return null; }
     @Override public Color selectColor(String prompt, List<Color> players) { return null; }
