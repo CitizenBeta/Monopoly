@@ -34,7 +34,7 @@ public class GameController implements DecisionMaker {
     @FXML private Label handText;
     @FXML private Label boardText;
     @FXML private VBox handCards;
-    @FXML private VBox playerBoards;
+    @FXML private VBox table;
 
     @FXML
     private void initialize() {
@@ -63,7 +63,7 @@ public class GameController implements DecisionMaker {
         handText.setText("No active hand");
         boardText.setText("Start a new game to populate the table");
         handCards.getChildren().clear();
-        playerBoards.getChildren().clear();
+        table.getChildren().clear();
     }
 
     private void showGame() {
@@ -80,7 +80,9 @@ public class GameController implements DecisionMaker {
         handText.setText(current.getName() + " can act now");
         boardText.setText(game.getPlayers().size() + " players in this match");
         handCards.getChildren().clear();
-        playerBoards.getChildren().clear();
+        table.getChildren().clear();
+        updateHand(current);
+        updateTable(game.getPlayers());
     }
 
     @FXML
@@ -137,7 +139,8 @@ public class GameController implements DecisionMaker {
         return dialog.showAndWait().orElse(null);
     }
 
-    private void refreshHand(Player player) {
+    private void updateHand(Player player) {
+        handCards.getChildren().clear();
         List<Card> hand = player.getCardsAtHand();
 
         if (hand.isEmpty()) {
@@ -147,6 +150,19 @@ public class GameController implements DecisionMaker {
 
         for (Card card : hand) {
             handCards.getChildren().add(new Label(card.getName()));
+        }
+    }
+
+    private void updateTable(List<Player> players) {
+        table.getChildren().clear();
+
+        if (players.isEmpty()) {
+            table.getChildren().add(new Label("No players in the game."));
+            return;
+        }
+
+        for (Player player:players) {
+            table.getChildren().add(new Label(player.getName() + " | Hand " + player.getCardsAtHand().size() + " | Bank " + player.getCardsAtBank().size()));
         }
     }
 
