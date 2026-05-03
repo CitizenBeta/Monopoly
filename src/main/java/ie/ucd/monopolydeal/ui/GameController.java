@@ -17,6 +17,7 @@ import java.util.stream.IntStream;
 
 public class GameController implements DecisionMaker {
     private final Game game = new Game();
+    private Card selectedCard = null;
 
     @FXML private Label statusTitle;
     @FXML private Label statusText;
@@ -44,10 +45,10 @@ public class GameController implements DecisionMaker {
     private void refreshView() {
         if (!game.isStarted()) {
             showPregame();
-            return;
+        } else {
+            showGame();
         }
-
-        showGame();
+        updateButtonStatus();
     }
 
     private void showPregame() {
@@ -99,6 +100,18 @@ public class GameController implements DecisionMaker {
 
     @FXML
     private void onPlaySelected() {
+        if (!game.isStarted() || selectedCard == null) {
+            return;
+        }
+
+        if (game.playCard(selectedCard)) {
+            statusText.setText("Played " + selectedCard.getName());
+            selectedCard = null;
+        } else {
+            statusText.setText("Cannot play " + selectedCard.getName());
+        }
+
+        refreshView();
     }
 
     @FXML
@@ -149,7 +162,21 @@ public class GameController implements DecisionMaker {
         }
 
         for (Card card : hand) {
-            handCards.getChildren().add(new Label(card.getName()));
+            Label label = new Label(card.getName());
+
+            if (selectedCard == card) {
+                label.setStyle("-fx-padding: 8; -fx-border-color: #2563eb; -fx-background-color: #eff6ff;");
+            } else {
+                label.setStyle("-fx-padding: 8; -fx-border-color: #cbd5e1; -fx-background-color: white;");
+            }
+            label.setOnMouseClicked(e -> {
+                selectedCard = card;
+                refreshView();
+            });
+            label.setMaxWidth(Double.MAX_VALUE);
+
+            handCards.getChildren().add(label);
+
         }
     }
 
@@ -164,6 +191,12 @@ public class GameController implements DecisionMaker {
         for (Player player:players) {
             table.getChildren().add(new Label(player.getName() + " | Hand " + player.getCardsAtHand().size() + " | Bank " + player.getCardsAtBank().size()));
         }
+    }
+
+    private void updateButtonStatus() {
+        playButton.setDisable(!game.isStarted() || selectedCard == null);
+        moveWildButton.setDisable(!game.isStarted());
+        endTurnButton.setDisable(!game.isStarted());
     }
 
     @Override public Player selectNextPlayer(Player currentPlayer, List<Player> players, String prompt) { return null; }

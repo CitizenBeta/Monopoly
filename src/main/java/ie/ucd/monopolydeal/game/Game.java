@@ -1,6 +1,7 @@
 package ie.ucd.monopolydeal.game;
 
 import ie.ucd.monopolydeal.model.Card;
+import ie.ucd.monopolydeal.model.MoneyCard;
 import ie.ucd.monopolydeal.model.Player;
 
 import java.util.ArrayList;
@@ -19,7 +20,11 @@ public class Game {
         started = true;
 
         for (int i = 0; i < names.size(); i++) {
-            players.add(new Player(names.get(i), i + 1));
+            Player player = new Player(names.get(i), i + 1);
+            player.addCardToHand(new MoneyCard("1M", 1));
+            player.addCardToHand(new MoneyCard("2M", 2));
+            player.addCardToHand(new MoneyCard("3M", 3));
+            players.add(player);
         }
     }
 
@@ -37,6 +42,25 @@ public class Game {
 
     public int getActionsUsed() {
         return actionsUsed;
+    }
+
+    public boolean playCard(Card card) {
+        if (!started || card == null) {
+            return false;
+        }
+
+        Player current = getCurrentPlayer();
+        if (!current.getCardsAtHand().contains(card)) {
+            return false;
+        }
+
+        if (actionsUsed >= Player.MAX_ACTIONS_PER_TURN) {
+            return false;
+        }
+
+        current.addCardToBank(card);
+        actionsUsed++;
+        return true;
     }
 
     public int getCurrentPlayerBankTotal() {
