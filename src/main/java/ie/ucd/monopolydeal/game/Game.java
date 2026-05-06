@@ -12,6 +12,7 @@ public class Game {
     private int currentPlayerIndex;
     private int actionsUsed;
     private boolean started;
+    private Deck deck = new Deck();
 
     public void setup(List<String> names) {
         players.clear();
@@ -83,4 +84,14 @@ public class Game {
 
         actionsUsed = 0;
     }
+
+    private void drawCards(Player player, int number){
+        for(int i = 0; i < number; i++){
+           Card card = deck.draw();
+           if(card!=null){
+               player.addCardToHand(card);
+           }
+        }
+    }
+
 }

@@ -13,7 +13,7 @@ public class Deck {
     private List<Card> discardPile = new ArrayList<>();
 
     public Deck(){
-
+        initialize();
     }
 
     private void addMoneyCard(String name, int bankValue, int number){
@@ -45,9 +45,12 @@ public class Deck {
             drawPile.add(new WildPropertyCard(name,possibleColors,bankValue));
         }
     }
-    
 
-    private void initializeStandardDeck() {
+    private void shuffle(){
+        Collections.shuffle(drawPile);
+    }
+
+    private void initialize() {
         addMoneyCard("1M", 1, 6);
         addMoneyCard("2M", 2, 5);
         addMoneyCard("3M", 3, 3);
@@ -110,6 +113,45 @@ public class Deck {
         addActionCard("Green/Dark Blue Rent", 1,ActionType.RENT,   2, Arrays.asList(PropertyColor.GREEN, PropertyColor.DARK_BLUE));
         addActionCard("Railroad/Utility Rent", 1,ActionType.RENT,   2, Arrays.asList(PropertyColor.RAILROAD, PropertyColor.UTILITY));
         addActionCard("Wild Rent", 3,ActionType.MULTI_RENT,   3, PropertyColor.getColors());
+        shuffle();
+    }
+
+    public int getDrawPileNumber(){
+        return drawPile.size();
+    }
+
+    public int getDiscardPileNumber(){
+        return discardPile.size();
+    }
+
+    public Card draw(){
+       if(drawPile.isEmpty()){
+           if(!discardPile.isEmpty()) {
+               refill();
+               return drawPile.removeLast();
+           }else{
+               return null;
+           }
+       }else{
+           return drawPile.removeLast();
+       }
+    }
+
+    public void discard(Card card){
+        if(card!=null) {
+            discardPile.add(card);
+        }
+
+    }
+
+    private void refill(){
+        if(discardPile.isEmpty()){
+            return;
+        }else{
+            drawPile.addAll(discardPile);
+            shuffle();
+            discardPile.clear();
+        }
     }
 
 
