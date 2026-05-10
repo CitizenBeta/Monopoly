@@ -34,21 +34,31 @@ public class Player {
     }
 
     public void addCardToHand(Card card) {
-        if (card == null) return;
+        if (card == null) {
+            return;
+        }
         cardsAtHand.add(card);
     }
 
     public void addCardToBank(Card card) {
-        if (card == null) return;
+        if (card == null) {
+            return;
+        }
         cardsAtHand.remove(card);
         cardsAtBank.add(card);
     }
 
     public boolean removeCardFromHand(Card card) {
+        if(card == null){
+            return false;
+        }
         return cardsAtHand.remove(card);
     }
 
     public boolean removeCardFromBank(Card card) {
+        if(card == null){
+            return false;
+        }
         return cardsAtBank.remove(card);
     }
 
@@ -61,6 +71,6 @@ public class Player {
     }
 
     public boolean isHandFull() {
-        return cardsAtHand.size() >= MAX_CARDS_AT_HAND;
+        return cardsAtHand.size() > MAX_CARDS_AT_HAND;
     }
 }

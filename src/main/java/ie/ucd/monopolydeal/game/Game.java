@@ -45,6 +45,14 @@ public class Game {
         return actionsUsed;
     }
 
+    public List<Player> getOtherPlayers(){
+        List<Player> otherPlayers = new ArrayList<>();
+        otherPlayers.addAll(getPlayers());
+        otherPlayers.remove(getCurrentPlayer());
+        return otherPlayers;
+    }
+
+
     public boolean playCard(Card card) {
         if (!started || card == null) {
             return false;
