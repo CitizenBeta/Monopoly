@@ -37,7 +37,7 @@ public class Game {
         return players;
     }
 
-    public Player getCurrentPlayer() {
+    public Player getCurrPlayer() {
         return players.get(currentPlayerIndex);
     }
 
@@ -50,7 +50,7 @@ public class Game {
             return false;
         }
 
-        Player current = getCurrentPlayer();
+        Player current = getCurrPlayer();
         if (!current.getCardsAtHand().contains(card)) {
             return false;
         }
@@ -64,9 +64,9 @@ public class Game {
         return true;
     }
 
-    public int getCurrentPlayerBankTotal() {
+    public int getCurrBankTotal() {
         int total = 0;
-        for (Card card : getCurrentPlayer().getCardsAtBank()) {
+        for (Card card : getCurrPlayer().getCardsAtBank()) {
             total += card.getBankValue();
         }
         return total;

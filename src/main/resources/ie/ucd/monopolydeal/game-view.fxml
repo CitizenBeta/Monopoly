@@ -38,7 +38,7 @@
                             </children>
                         </VBox>
                         <Region HBox.hgrow="ALWAYS" />
-                        <Label fx:id="statusState" text="Ready"
+                        <Label fx:id="badge" text="Ready"
                                style="-fx-padding: 5 10 5 10; -fx-background-color: #e0e7ff; -fx-border-color: #a5b4fc; -fx-border-radius: 12; -fx-background-radius: 12; -fx-text-fill: #4338ca;">
                             <font>
                                 <Font name="Segoe UI Semibold" size="12.0" />

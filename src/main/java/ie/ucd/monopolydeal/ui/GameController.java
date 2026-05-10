@@ -6,6 +6,7 @@ import ie.ucd.monopolydeal.model.*;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
@@ -22,7 +23,7 @@ public class GameController implements DecisionMaker {
 
     @FXML private Label statusTitle;
     @FXML private Label statusText;
-    @FXML private Label statusState;
+    @FXML private Label badge;
     @FXML private Label currentPlayer;
     @FXML private Label actions;
     @FXML private Label handCount;
@@ -55,7 +56,7 @@ public class GameController implements DecisionMaker {
         statusText.setWrapText(true);
         statusText.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
         statusText.setTextFill(Color.rgb(15, 23, 42));
-        statusState.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+        badge.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
 
         // Set content area
         handCards.setFillWidth(true);
@@ -63,7 +64,7 @@ public class GameController implements DecisionMaker {
         handCardsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         handCardsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         handCardsScroll.setPannable(true);
-        handCardsScroll.setBackground(solidBackground(Color.WHITE));
+        handCardsScroll.setBackground(setSolidBackground(Color.WHITE));
         handCardsScroll.setBorder(Border.EMPTY);
 
         table.setFillWidth(true);
@@ -75,50 +76,6 @@ public class GameController implements DecisionMaker {
         boardText.setFont(Font.font("Segoe UI", 13));
 
         refresh();
-    }
-
-    private void refresh() {
-        if (!game.isStarted()) {
-            showPregame();
-        } else {
-            showGame();
-        }
-        updateButtonStatus();
-    }
-
-    private void showPregame() {
-        statusTitle.setText("Status");
-        statusText.setText("Start a new game.");
-        statusState.setText("Ready");
-        currentPlayer.setText("-");
-        actions.setText("0 / 3");
-        handCount.setText("0");
-        bankTotal.setText("0M");
-        completedSets.setText("0 / 3");
-        piles.setText("0 / 0");
-        handText.setText("No active hand");
-        boardText.setText("Start a new game to populate the table");
-        handCards.getChildren().clear();
-        table.getChildren().clear();
-    }
-
-    private void showGame() {
-        Player current = game.getCurrentPlayer();
-
-        statusTitle.setText("Status");
-        statusState.setText("Turn Active");
-        currentPlayer.setText(current.getName());
-        actions.setText(game.getActionsUsed() + " / " + Player.MAX_ACTIONS_PER_TURN);
-        handCount.setText(String.valueOf(current.getCardsAtHand().size()));
-        bankTotal.setText(game.getCurrentPlayerBankTotal() + "M");
-        completedSets.setText("0 / 3");
-        piles.setText("0 / 0");
-        handText.setText(current.getName() + " can act now");
-        boardText.setText(game.getPlayers().size() + " players in this match");
-        handCards.getChildren().clear();
-        table.getChildren().clear();
-        updateHand(current);
-        updateTable(game.getPlayers());
     }
 
     @FXML
@@ -163,6 +120,52 @@ public class GameController implements DecisionMaker {
         game.endTurn();
         statusText.setText("Turn ended.");
         refresh();
+    }
+
+    private void refresh() {
+        if (!game.isStarted()) {
+            showPregame();
+        } else {
+            showGame();
+        }
+        updateButtonStatus();
+    }
+
+    private void showPregame() {
+        statusTitle.setText("Status");
+        statusText.setText("Start a new game.");
+        currentPlayer.setText("-");
+        actions.setText("0 / 3");
+        handCount.setText("0");
+        bankTotal.setText("0M");
+        completedSets.setText("0 / 3");
+        piles.setText("0 / 0");
+        handText.setText("No active hand");
+        boardText.setText("Start a new game to populate the table");
+
+        selectedCard = null;
+        handCards.getChildren().setAll(pregameCard("No cards yet", "Start a new game to render the active hand here."));
+        table.getChildren().setAll(pregameCard("No players yet", "Create a game to see hand, bank, and property areas."));
+
+        updateBadge("Ready", Color.rgb(224, 231, 255), Color.rgb(165, 180, 252), Color.rgb(67, 56, 202));
+    }
+
+    private void showGame() {
+        Player player = game.getCurrPlayer();
+        statusTitle.setText("Status");
+        currentPlayer.setText(player.getName());
+        actions.setText(game.getActionsUsed() + " / " + Player.MAX_ACTIONS_PER_TURN);
+        handCount.setText(String.valueOf(player.getCardsAtHand().size()));
+        bankTotal.setText(game.getCurrBankTotal() + "M");
+        completedSets.setText("0 / 3");
+        piles.setText("0 / 0");
+        handText.setText(player.getName() + " can act now");
+        boardText.setText(game.getPlayers().size() + " players in this match");
+        handCards.getChildren().clear();
+        table.getChildren().clear();
+        updateHand(player);
+        updateTable(game.getPlayers());
+        updateBadge("Turn Active", Color.rgb(219, 234, 254), Color.rgb(147, 197, 253), Color.rgb(29, 78, 216));
     }
 
     private List<String> askNames() {
@@ -242,6 +245,30 @@ public class GameController implements DecisionMaker {
         endTurnButton.setDisable(!game.isStarted());
     }
 
+    private void updateBadge(String text, Color background, Color border, Color foreground) {
+        badge.setText(text);
+        badge.setBackground(setSolidBackground(background));
+        badge.setBorder(roundCorner(border));
+        badge.setTextFill(foreground);
+    }
+
+    private VBox pregameCard(String titleText, String bodyText) {
+        Label title = new Label(titleText);
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        Label body = new Label(bodyText);
+        body.setWrapText(true);
+        body.setTextFill(Color.rgb(71, 85, 105));
+
+        VBox box = new VBox(8, title, body);
+        box.setAlignment(Pos.CENTER_LEFT);
+        box.setPadding(new Insets(22));
+        box.setMaxWidth(Double.MAX_VALUE);
+        box.setBackground(setSolidBackground(Color.WHITE));
+        box.setBorder(roundCorner(Color.rgb(203, 213, 225)));
+        return box;
+    }
+
     private void setActionButton(Button button, Color color, boolean isFilled) {
         button.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
         button.setPadding(new Insets(10, 16, 10, 16));
@@ -249,23 +276,22 @@ public class GameController implements DecisionMaker {
 
         if (isFilled) {
             button.setTextFill(Color.WHITE);
-            button.setBackground(solidBackground(color));
+            button.setBackground(setSolidBackground(color));
             button.setBorder(roundCorner(color.darker()));
         } else {
             button.setTextFill(color.darker());
-            button.setBackground(solidBackground(Color.WHITE));
+            button.setBackground(setSolidBackground(Color.WHITE));
             button.setBorder(roundCorner(color));
         }
     }
 
-    private Background solidBackground(Color color) {
+    private Background setSolidBackground(Color color) {
         return new Background(new BackgroundFill(color, new CornerRadii(12), Insets.EMPTY));
     }
 
     private Border roundCorner(Color color) {
         return new Border(new BorderStroke(color, BorderStrokeStyle.SOLID, new CornerRadii(12), new BorderWidths(1)));
     }
-
 
     @Override public Player selectNextPlayer(Player currentPlayer, List<Player> players, String prompt) { return null; }
     @Override public PropertyColor selectColor(String prompt, List<PropertyColor> players) { return null; }
