@@ -6,6 +6,7 @@ import ie.ucd.monopolydeal.model.*;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
@@ -22,7 +23,7 @@ public class GameController implements DecisionMaker {
 
     @FXML private Label statusTitle;
     @FXML private Label statusText;
-    @FXML private Label statusState;
+    @FXML private Label badge;
     @FXML private Label currentPlayer;
     @FXML private Label actions;
     @FXML private Label handCount;
@@ -38,72 +39,64 @@ public class GameController implements DecisionMaker {
     @FXML private VBox handCards;
     @FXML private VBox table;
 
-    @FXML private ScrollPane handCardsScroll;
+    @FXML private ScrollPane cardsScroll;
     @FXML private ScrollPane tableScroll;
 
     @FXML
     private void initialize() {
-        refreshView();
-        configureButtons();
-        configureStatusBanner();
-        configureContentAreas();
-        refreshView();
-    }
+        // Set buttons
+        setActionButton(newGameButton, Color.rgb(37, 99, 235), true);
+        setActionButton(playButton, Color.rgb(22, 163, 74), true);
+        setActionButton(moveWildButton, Color.rgb(245, 158, 11), false);
+        setActionButton(endTurnButton, Color.rgb(71, 85, 105), false);
 
-    private void refreshView() {
-        if (!game.isStarted()) {
-            showPregame();
-        } else {
-            showGame();
-        }
-        updateButtonStatus();
-    }
+        // Set status
+        statusTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+        statusTitle.setTextFill(Color.rgb(71, 85, 105));
+        statusText.setWrapText(true);
+        statusText.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+        statusText.setTextFill(Color.rgb(15, 23, 42));
+        badge.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
 
-    private void showPregame() {
-        statusTitle.setText("Status");
-        statusText.setText("Start a new game.");
-        statusState.setText("Ready");
-        currentPlayer.setText("-");
-        actions.setText("0 / 3");
-        handCount.setText("0");
-        bankTotal.setText("0M");
-        completedSets.setText("0 / 3");
-        piles.setText("0 / 0");
-        handText.setText("No active hand");
-        boardText.setText("Start a new game to populate the table");
-        handCards.getChildren().clear();
-        table.getChildren().clear();
-    }
+        // Set content area
+        handCards.setFillWidth(true);
+        cardsScroll.setFitToWidth(true);
+        cardsScroll.viewportBoundsProperty().addListener((event, oldBounds, newBounds) -> {
+            handCards.setMinHeight(newBounds.getHeight());
+        });
+        cardsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        cardsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        cardsScroll.setPannable(true);
+        cardsScroll.setBackground(setSolidBackground(Color.WHITE));
+        cardsScroll.setBorder(Border.EMPTY);
+        cardsScroll.setOnMouseClicked(event -> {
+            if (event.getTarget() == cardsScroll || event.getTarget() == handCards && selectedCard != null) {
+                selectedCard = null;
+                refresh();
+            }
+        });
 
-    private void showGame() {
-        Player current = game.getCurrentPlayer();
+        table.setFillWidth(true);
+        tableScroll.setFitToWidth(true);
+        tableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        tableScroll.setPannable(true);
 
-        statusTitle.setText("Status");
-        statusState.setText("Turn Active");
-        currentPlayer.setText(current.getName());
-        actions.setText(game.getActionsUsed() + " / " + Player.MAX_ACTIONS_PER_TURN);
-        handCount.setText(String.valueOf(current.getCardsAtHand().size()));
-        bankTotal.setText(game.getCurrentPlayerBankTotal() + "M");
-        completedSets.setText("0 / 3");
-        piles.setText("0 / 0");
-        handText.setText(current.getName() + " can act now");
-        boardText.setText(game.getPlayers().size() + " players in this match");
-        handCards.getChildren().clear();
-        table.getChildren().clear();
-        updateHand(current);
-        updateTable(game.getPlayers());
+        handText.setFont(Font.font("Segoe UI", 13));
+        boardText.setFont(Font.font("Segoe UI", 13));
+
+        refresh();
     }
 
     @FXML
     private void onNewGame() {
-        List<String> names = askNames();
+        List<String> names = askPlayerNames();
         if (names == null || names.size() < 2) {
             return;
         }
 
         game.setup(names);
         statusText.setText("Game started.");
-        refreshView();
+        refresh();
     }
 
     @FXML
@@ -119,7 +112,7 @@ public class GameController implements DecisionMaker {
             statusText.setText("Cannot play " + selectedCard.getName());
         }
 
-        refreshView();
+        refresh();
     }
 
     @FXML
@@ -135,37 +128,84 @@ public class GameController implements DecisionMaker {
         selectedCard = null;
         game.endTurn();
         statusText.setText("Turn ended.");
-        refreshView();
+        refresh();
     }
 
-    private List<String> askNames() {
-        Integer count = askInt("How many players?", 2, 5);
+    private void refresh() {
+        if (!game.isStarted()) {
+            showPregame();
+        } else {
+            showGame();
+        }
+        updateButtonStatus();
+    }
+
+    private void showPregame() {
+        statusTitle.setText("Status");
+        statusText.setText("Start a new game.");
+        currentPlayer.setText("-");
+        actions.setText("0 / 3");
+        handCount.setText("0");
+        bankTotal.setText("0M");
+        completedSets.setText("0 / 3");
+        piles.setText("0 / 0");
+        handText.setText("No active hand");
+        boardText.setText("Start a new game to populate the table");
+
+        selectedCard = null;
+        handCards.getChildren().setAll(noCardBox("No cards yet", "Start a new game to render the active hand here."));
+        table.getChildren().setAll(noCardBox("No players yet", "Create a game to see hand, bank, and property areas."));
+
+        updateBadge("Ready", Color.rgb(224, 231, 255), Color.rgb(165, 180, 252), Color.rgb(67, 56, 202));
+    }
+
+    private void showGame() {
+        Player player = game.getCurrPlayer();
+        statusTitle.setText("Status");
+        currentPlayer.setText(player.getName());
+        actions.setText(game.getActionsUsed() + " / " + Player.MAX_ACTIONS_PER_TURN);
+        handCount.setText(String.valueOf(player.getCardsAtHand().size()));
+        bankTotal.setText(game.getCurrBankTotal() + "M");
+        completedSets.setText("0 / 3");
+        piles.setText("0 / 0");
+        handText.setText(player.getName() + " can act now");
+        boardText.setText(game.getPlayers().size() + " players in this match");
+        handCards.getChildren().clear();
+        table.getChildren().clear();
+        updateHand(player);
+        updateTable(game.getPlayers());
+        updateBadge("Turn Active", Color.rgb(219, 234, 254), Color.rgb(147, 197, 253), Color.rgb(29, 78, 216));
+    }
+
+    private List<String> askPlayerNames() {
+        ChoiceDialog<Integer> playerNumDialog = new ChoiceDialog<>(2, FXCollections.observableArrayList(IntStream.rangeClosed(2, 5).boxed().toList()));
+        playerNumDialog.setHeaderText("How many players?");
+        Integer count = playerNumDialog.showAndWait().orElse(null);
+
         if (count == null) {
             return null;
         }
 
         List<String> names = new ArrayList<>();
         for (int i = 1; i <= count; i++) {
-            TextInputDialog dialog = new TextInputDialog("Player " + i);
-            dialog.setHeaderText("Enter name for player " + i);
-            dialog.setContentText("Name:");
+            TextInputDialog playerNameDialog = new TextInputDialog("Player " + i);
+            playerNameDialog.setHeaderText("Enter name for player " + i);
+            playerNameDialog.setContentText("Name:");
 
-            String result = dialog.showAndWait().orElse(null);
+            String result = playerNameDialog.showAndWait().orElse(null);
             if (result == null) {
                 return null;
             }
 
             String name = result.trim();
-            names.add(name.isEmpty() ? "Player " + i : name);
+            if (name.isEmpty()) {
+                names.add("Player " + i);
+            } else {
+                names.add(name);
+            }
         }
 
         return names;
-    }
-
-    private Integer askInt(String prompt, int min, int max) {
-        ChoiceDialog<Integer> dialog = new ChoiceDialog<>(min, FXCollections.observableArrayList(IntStream.rangeClosed(min, max).boxed().toList()));
-        dialog.setHeaderText(prompt);
-        return dialog.showAndWait().orElse(null);
     }
 
     private void updateHand(Player player) {
@@ -173,40 +213,186 @@ public class GameController implements DecisionMaker {
         List<Card> hand = player.getCardsAtHand();
 
         if (hand.isEmpty()) {
-            handCards.getChildren().add(new Label("No cards."));
+            handCards.getChildren().add(noCardBox("No cards.", "This player has no cards in hand."));
             return;
         }
 
         for (Card card : hand) {
-            Label label = new Label(card.getName());
-
-            if (selectedCard == card) {
-                label.setStyle("-fx-padding: 8; -fx-border-color: #2563eb; -fx-background-color: #eff6ff;");
-            } else {
-                label.setStyle("-fx-padding: 8; -fx-border-color: #cbd5e1; -fx-background-color: white;");
-            }
-            label.setOnMouseClicked(e -> {
-                selectedCard = card;
-                refreshView();
-            });
-            label.setMaxWidth(Double.MAX_VALUE);
-
-            handCards.getChildren().add(label);
-
+            handCards.getChildren().add(newHandCard(card));
         }
+    }
+
+    private HBox newHandCard(Card card) {
+        Label name = new Label(card.getName());
+        name.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        name.setTextFill(Color.rgb(15, 23, 42));
+
+        Label type = new Label(cardType(card));
+        type.setTextFill(Color.rgb(71, 85, 105));
+
+        Label detail = new Label(cardDetail(card));
+        detail.setTextFill(Color.rgb(71, 85, 105));
+        detail.setWrapText(true);
+
+        VBox textBox = new VBox(4, name, type, detail);
+
+        HBox cardBox = new HBox(12, newCardBar(cardColor(card)), textBox);
+        cardBox.setAlignment(Pos.CENTER_LEFT);
+        cardBox.setPadding(new Insets(12));
+        cardBox.setMaxWidth(Double.MAX_VALUE);
+
+        if (selectedCard == card) {
+            cardBox.setBackground(setSolidBackground(Color.rgb(239, 246, 255)));
+            cardBox.setBorder(roundCorner(Color.rgb(37, 99, 235)));
+        } else {
+            cardBox.setBackground(setSolidBackground(Color.WHITE));
+            cardBox.setBorder(roundCorner(Color.rgb(203, 213, 225)));
+        }
+
+        cardBox.setOnMouseClicked(e -> {
+            selectedCard = card;
+            refresh();
+        });
+
+        return cardBox;
+    }
+
+    private Region newCardBar(Color color) {
+        Region bar = new Region();
+        bar.setPrefSize(6, 46);
+        bar.setMinWidth(6);
+        bar.setBackground(setSolidBackground(color));
+        return bar;
+    }
+
+    private String cardType(Card card) {
+        return switch (card) {
+            case MoneyCard _ -> "Money";
+            case PropertyCard _ -> "Property";
+            case WildPropertyCard _ -> "Wild";
+            case ActionCard _ -> "Action";
+            case null, default -> "Card";
+        };
+    }
+
+    private String cardDetail(Card card) {
+        return switch (card) {
+            case PropertyCard propertyCard -> "Color: " + propertyCard.getColor().getName() + " | Value: " + propertyCard.getBankValue() + "M";
+            case WildPropertyCard wildCard -> {
+                String currentColor;
+                if (wildCard.getCurrentColor() == null) {
+                    currentColor = "Not selected";
+                } else {
+                    currentColor = wildCard.getCurrentColor().getName();
+                }
+                yield "Current color: " + currentColor + " | Value: " + wildCard.getBankValue() + "M";
+            }
+            case ActionCard actionCard -> "Effect: " + actionCard.getActionType().name() + " | Value: " + actionCard.getBankValue() + "M";
+            default -> "Value: " + card.getBankValue() + "M";
+        };
+    }
+
+    private Color cardColor(Card card) {
+        return switch (card) {
+            case MoneyCard _ -> Color.rgb(22, 163, 74);
+            case PropertyCard _ -> Color.rgb(37, 99, 235);
+            case WildPropertyCard _ -> Color.rgb(8, 145, 178);
+            case ActionCard _ -> Color.rgb(217, 119, 6);
+            case null, default -> Color.rgb(100, 116, 139);
+        };
     }
 
     private void updateTable(List<Player> players) {
         table.getChildren().clear();
 
         if (players.isEmpty()) {
-            table.getChildren().add(new Label("No players in the game."));
+            table.getChildren().add(noCardBox("No players.", "Start a new game to show player boards."));
             return;
         }
 
-        for (Player player:players) {
-            table.getChildren().add(new Label(player.getName() + " | Hand " + player.getCardsAtHand().size() + " | Bank " + player.getCardsAtBank().size()));
+        for (Player player : players) {
+            table.getChildren().add(newPlayerBox(player));
         }
+    }
+
+    private VBox newPlayerBox(Player player) {
+        boolean isCurrent = (player == game.getCurrPlayer());
+
+        Label name = new Label(player.getName());
+        name.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+        name.setTextFill(Color.rgb(15, 23, 42));
+
+        String turnText;
+        Color turnBackground;
+        Color turnTextColor;
+
+        // Set badge
+        if (isCurrent) {
+            turnText = "Current Turn";
+            turnBackground = Color.rgb(220, 252, 231);
+            turnTextColor = Color.rgb(22, 101, 52);
+        } else {
+            turnText = "Waiting";
+            turnBackground = Color.rgb(241, 245, 249);
+            turnTextColor = Color.rgb(71, 85, 105);
+        }
+
+        HBox header = new HBox(8, name,
+                newBadge("P" + player.getNumber(), Color.rgb(226, 232, 240), Color.rgb(15, 23, 42)),
+                newBadge(turnText, turnBackground, turnTextColor)
+        );
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        HBox summaryBox = new HBox(8, newBadge("Hand " + player.getCardsAtHand().size()), newBadge("Bank " + player.getBankTotalValue() + "M"));
+        summaryBox.setAlignment(Pos.CENTER_LEFT);
+
+        VBox bank = new VBox(4);
+        Label bankTitle = new Label("Bank");
+        bankTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+        bankTitle.setTextFill(Color.rgb(71, 85, 105));
+        bank.getChildren().add(bankTitle);
+
+        if (player.getCardsAtBank().isEmpty()) {
+            Label emptyBank = new Label("Bank is empty.");
+            emptyBank.setTextFill(Color.rgb(100, 116, 139));
+            bank.getChildren().add(emptyBank);
+        } else {
+            for (Card card : player.getCardsAtBank()) {
+                Label bankCard = new Label(card.getName() + " | " + card.getBankValue() + "M");
+                bankCard.setTextFill(Color.rgb(71, 85, 105));
+                bank.getChildren().add(bankCard);
+            }
+        }
+
+        VBox box = new VBox(8, header, summaryBox, bank);
+        box.setPadding(new Insets(12));
+        box.setMaxWidth(Double.MAX_VALUE);
+
+        // Set focus
+        if (isCurrent) {
+            box.setBackground(setSolidBackground(Color.rgb(239, 246, 255)));
+            box.setBorder(roundCorner(Color.rgb(96, 165, 250)));
+        } else {
+            box.setBackground(setSolidBackground(Color.WHITE));
+            box.setBorder(roundCorner(Color.rgb(203, 213, 225)));
+        }
+
+        return box;
+    }
+
+    // Gray badge by default
+    private Label newBadge(String text) {
+        return newBadge(text, Color.rgb(241, 245, 249), Color.rgb(51, 65, 85));
+    }
+
+    // Overload to add more options
+    private Label newBadge(String text, Color background, Color foreground) {
+        Label label = new Label(text);
+        label.setPadding(new Insets(4, 8, 4, 8));
+        label.setBackground(setSolidBackground(background));
+        label.setBorder(roundCorner(background.darker()));
+        label.setTextFill(foreground);
+        return label;
     }
 
     private void updateButtonStatus() {
@@ -215,65 +401,53 @@ public class GameController implements DecisionMaker {
         endTurnButton.setDisable(!game.isStarted());
     }
 
-    private void configureButtons() {
-        styleActionButton(newGameButton, Color.rgb(37, 99, 235), true);
-        styleActionButton(playButton, Color.rgb(22, 163, 74), true);
-        styleActionButton(moveWildButton, Color.rgb(245, 158, 11), false);
-        styleActionButton(endTurnButton, Color.rgb(71, 85, 105), false);
+    private void updateBadge(String text, Color background, Color border, Color foreground) {
+        badge.setText(text);
+        badge.setBackground(setSolidBackground(background));
+        badge.setBorder(roundCorner(border));
+        badge.setTextFill(foreground);
     }
 
-    private void configureStatusBanner() {
-        statusTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
-        statusTitle.setTextFill(Color.rgb(71, 85, 105));
-        statusText.setWrapText(true);
-        statusText.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
-        statusText.setTextFill(Color.rgb(15, 23, 42));
-        statusState.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+    private VBox noCardBox(String titleText, String bodyText) {
+        Label title = new Label(titleText);
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+
+        Label body = new Label(bodyText);
+        body.setWrapText(true);
+        body.setTextFill(Color.rgb(71, 85, 105));
+
+        VBox box = new VBox(8, title, body);
+        box.setAlignment(Pos.CENTER_LEFT);
+        box.setPadding(new Insets(22));
+        box.setMaxWidth(Double.MAX_VALUE);
+        box.setBackground(setSolidBackground(Color.WHITE));
+        box.setBorder(roundCorner(Color.rgb(203, 213, 225)));
+        return box;
     }
 
-    private void configureContentAreas() {
-        handCards.setFillWidth(true);
-        handCardsScroll.setFitToWidth(true);
-        handCardsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        handCardsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        handCardsScroll.setPannable(true);
-        handCardsScroll.setBackground(solidBackground(Color.WHITE));
-        handCardsScroll.setBorder(Border.EMPTY);
-
-        table.setFillWidth(true);
-        tableScroll.setFitToWidth(true);
-        tableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        tableScroll.setPannable(true);
-
-        handText.setFont(Font.font("Segoe UI", 13));
-        boardText.setFont(Font.font("Segoe UI", 13));
-    }
-
-
-    private void styleActionButton(Button button, Color color, boolean filled) {
+    private void setActionButton(Button button, Color color, boolean isFilled) {
         button.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
         button.setPadding(new Insets(10, 16, 10, 16));
         button.setMinHeight(40);
 
-        if (filled) {
+        if (isFilled) {
             button.setTextFill(Color.WHITE);
-            button.setBackground(solidBackground(color));
-            button.setBorder(roundedBorder(color.darker()));
+            button.setBackground(setSolidBackground(color));
+            button.setBorder(roundCorner(color.darker()));
         } else {
             button.setTextFill(color.darker());
-            button.setBackground(solidBackground(Color.WHITE));
-            button.setBorder(roundedBorder(color));
+            button.setBackground(setSolidBackground(Color.WHITE));
+            button.setBorder(roundCorner(color));
         }
     }
 
-    private Background solidBackground(Color color) {
+    private Background setSolidBackground(Color color) {
         return new Background(new BackgroundFill(color, new CornerRadii(12), Insets.EMPTY));
     }
 
-    private Border roundedBorder(Color color) {
+    private Border roundCorner(Color color) {
         return new Border(new BorderStroke(color, BorderStrokeStyle.SOLID, new CornerRadii(12), new BorderWidths(1)));
     }
-
 
     @Override public Player selectNextPlayer(Player currentPlayer, List<Player> players, String prompt) { return null; }
     @Override public PropertyColor selectColor(String prompt, List<PropertyColor> players) { return null; }
