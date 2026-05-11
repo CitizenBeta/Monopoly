@@ -131,7 +131,7 @@ public class Game {
         if(getCurrPlayer().getCardsAtHand().isEmpty()){
             drawCardsNumber = 5;
         }else{
-            drawCardsNumber = 3;
+            drawCardsNumber = 2;
         }
         drawCards(getCurrPlayer(),drawCardsNumber);
         turn++;
