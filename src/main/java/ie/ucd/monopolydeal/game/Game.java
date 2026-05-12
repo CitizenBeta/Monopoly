@@ -14,10 +14,8 @@ public class Game {
     private int turnCount;
     private boolean started;
     private Deck deck = new Deck() ;
-    private List<String> log = new ArrayList<>();
     private List<UsedCardRecord> usedCardHistory = new ArrayList<>();
     private boolean gameOver;
-    private int turn;
     public void setup(List<String> names) {
         players.clear();
         usedCardHistory.clear();
@@ -26,7 +24,6 @@ public class Game {
         turnCount = 0;
         started = true;
         gameOver = false;
-        turn = 0;
 
         for (int i = 0; i < names.size(); i++) {
             Player player = new Player(names.get(i), i + 1);
@@ -41,9 +38,6 @@ public class Game {
     }
 
 
-    public List<String> getLog(){
-        return log;
-    }
 
     public List<UsedCardRecord> getUsedCardHistory() {
         return new ArrayList<>(usedCardHistory);
@@ -53,9 +47,6 @@ public class Game {
         return gameOver;
     }
 
-    public int getTurn(){
-        return turn;
-    }
 
 
     public boolean isStarted() {
@@ -160,8 +151,10 @@ public class Game {
         }
 
         drawCards(player, drawCardsNumber);
-        turnCount++;
-        turn = turnCount;
+        if(currentPlayerIndex==0){
+            turnCount++;
+        }
+
     }
 
     private void drawCards(Player player, int number){
