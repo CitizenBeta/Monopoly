@@ -56,6 +56,9 @@ public class GameController implements DecisionMaker {
         statusTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
         statusTitle.setTextFill(Color.rgb(71, 85, 105));
         statusText.setWrapText(true);
+        statusText.setMinWidth(0);
+        statusText.setMaxWidth(Double.MAX_VALUE);
+        statusText.prefWidthProperty().bind(((Region) statusText.getParent()).widthProperty());
         statusText.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
         statusText.setTextFill(Color.rgb(15, 23, 42));
         leadingPlayer.setWrapText(true);
@@ -205,9 +208,12 @@ public class GameController implements DecisionMaker {
             return;
         }
 
-        selectedCard = null;
-        game.endTurn(this);
-        statusText.setText("Turn ended.");
+        if (game.endTurn(this)) {
+            selectedCard = null;
+            statusText.setText("Turn ended.");
+        } else {
+            statusText.setText("Turn not ended. Discard required.");
+        }
         refresh();
     }
 
@@ -715,35 +721,80 @@ public class GameController implements DecisionMaker {
     @Override public UseMode useCard(ActionCard action) { return null; }
     @Override public WildPropertyCard selectWildCardToMove(Player current, List<WildPropertyCard> wildCards) { return null; }
     @Override
-    public Card selectDiscard(Player current, List<Card> cards) {
+    public List<Card> selectDiscards(Player current, List<Card> cards, int count) {
         if (cards.isEmpty()) {
             return null;
         }
 
-        List<String> options = new ArrayList<>();
-        for (int i = 0; i < cards.size(); i++) {
-            Card card = cards.get(i);
-            String option = (i + 1) + ". " + card.getName();
-            String detail = cardDetail(card);
-            if (!detail.isEmpty()) {
-                option += " - " + detail;
+        Dialog<List<Card>> dialog = new Dialog<>();
+        dialog.setTitle("Discard Cards");
+        dialog.setHeaderText(current.getName() + " has more than 7 cards. Choose " + count + " to discard.");
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.setDisable(true);
+
+        VBox optionsBox = new VBox(8);
+        optionsBox.setPadding(new Insets(8));
+
+        List<CheckBox> checkBoxes = new ArrayList<>();
+        for (Card card : cards) {
+            CheckBox checkBox = new CheckBox(discardOptionText(card));
+            checkBox.setWrapText(true);
+            checkBox.setMaxWidth(Double.MAX_VALUE);
+            checkBox.selectedProperty().addListener((event, oldValue, newValue) ->
+                    updateDiscardChecks(checkBoxes, okButton, count));
+            checkBoxes.add(checkBox);
+            optionsBox.getChildren().add(checkBox);
+        }
+
+        ScrollPane scrollPane = new ScrollPane(optionsBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setPrefSize(420, 280);
+
+        dialog.getDialogPane().setContent(scrollPane);
+        dialog.setResultConverter(button -> {
+            if (button == ButtonType.OK) {
+                List<Card> selectedCards = new ArrayList<>();
+                for (int i = 0; i < checkBoxes.size(); i++) {
+                    if (checkBoxes.get(i).isSelected()) {
+                        selectedCards.add(cards.get(i));
+                    }
+                }
+                return selectedCards;
             }
-            options.add(option);
-        }
-
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(options.get(0), FXCollections.observableArrayList(options));
-        dialog.setTitle("Discard Card");
-        dialog.setHeaderText(current.getName() + " has more than 7 cards.");
-        dialog.setContentText("Choose one card to discard:");
-
-        String selected = dialog.showAndWait().orElse(null);
-        if (selected == null) {
             return null;
+        });
+
+        return dialog.showAndWait().orElse(null);
+    }
+
+    private void updateDiscardChecks(List<CheckBox> checkBoxes, Button okButton, int count) {
+        int selectedCount = 0;
+        for (CheckBox checkBox : checkBoxes) {
+            if (checkBox.isSelected()) {
+                selectedCount++;
+            }
         }
 
-        int index = options.indexOf(selected);
-        return cards.get(index);
+        okButton.setDisable(selectedCount != count);
+
+        boolean limitReached = selectedCount >= count;
+        for (CheckBox checkBox : checkBoxes) {
+            checkBox.setDisable(limitReached && !checkBox.isSelected());
+        }
     }
+
+    private String discardOptionText(Card card) {
+        String text = card.getName();
+        String detail = cardDetail(card);
+        if (!detail.isEmpty()) {
+            text += " - " + detail;
+        }
+        return text;
+    }
+
     @Override public Card selectPropertyCard(Player owner, List<Card> cards, String prompt) { return null; }
     @Override public Card selectPaymentCard(Player owner, List<Card> cards, String prompt) { return null; }
     @Override public boolean reconfirm(String prompt) { return false; }

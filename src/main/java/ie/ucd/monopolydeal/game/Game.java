@@ -118,19 +118,30 @@ public class Game {
         return total;
     }
 
-    public void endTurn(DecisionMaker dm) {
+    public boolean endTurn(DecisionMaker dm) {
         if (!started || players.isEmpty()) {
-            return;
+            return false;
         }
         Player currPlayer = getCurrPlayer();
-        while(currPlayer.getCardsAtHand().size()>Player.MAX_CARDS_AT_HAND){
-            Card discard = dm.selectDiscard(currPlayer,currPlayer.getCardsAtHand());
-            if(discard == null){
-                discard = currPlayer.getCardsAtHand().getLast();
+        int discardCount = currPlayer.getCardsAtHand().size() - Player.MAX_CARDS_AT_HAND;
+
+        if (discardCount > 0) {
+            List<Card> discards = dm.selectDiscards(currPlayer, currPlayer.getCardsAtHand(), discardCount);
+            if (discards == null || discards.size() != discardCount) {
+                return false;
             }
-            currPlayer.removeCardFromHand(discard);
-            deck.discard(discard);
-            recordUsedCard(currPlayer, discard, "Discarded");
+
+            for (Card discard : discards) {
+                if (!currPlayer.getCardsAtHand().contains(discard)) {
+                    return false;
+                }
+            }
+
+            for (Card discard : discards) {
+                currPlayer.removeCardFromHand(discard);
+                deck.discard(discard);
+                recordUsedCard(currPlayer, discard, "Discarded");
+            }
         }
 
         currentPlayerIndex++;
@@ -140,6 +151,7 @@ public class Game {
 
         actionsUsed = 0;
         startTurn();
+        return true;
     }
 
     private void startTurn() {
@@ -151,10 +163,9 @@ public class Game {
         }
 
         drawCards(player, drawCardsNumber);
-        if(currentPlayerIndex==0){
+        if (currentPlayerIndex == 0) {
             turnCount++;
         }
-
     }
 
     private void drawCards(Player player, int number){

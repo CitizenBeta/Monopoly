@@ -8,7 +8,7 @@ public interface DecisionMaker {
     PropertyColor selectColor(String prompt, List<PropertyColor> players);
     UseMode useCard(ActionCard action);
     WildPropertyCard selectWildCardToMove(Player current, List<WildPropertyCard> wildCards);
-    Card selectDiscard(Player current, List<Card> cards);
+    List<Card> selectDiscards(Player current, List<Card> cards, int count);
     Card selectPropertyCard(Player owner, List<Card> cards, String prompt);
     Card selectPaymentCard(Player owner, List<Card> cards, String prompt);
     boolean reconfirm(String prompt);

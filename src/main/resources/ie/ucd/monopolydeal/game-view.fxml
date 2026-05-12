@@ -14,11 +14,21 @@
     <top>
         <VBox spacing="12.0">
             <children>
-                <Label text="Monopoly Deal FX" textFill="#0f172a">
-                    <font>
-                        <Font name="Segoe UI Bold" size="28.0" />
-                    </font>
-                </Label>
+                <HBox alignment="CENTER_LEFT" spacing="12.0">
+                    <children>
+                        <Label text="Monopoly Deal FX" textFill="#0f172a">
+                            <font>
+                                <Font name="Segoe UI Bold" size="28.0" />
+                            </font>
+                        </Label>
+                        <Label fx:id="statusBadge" text="Ready" textFill="#4338ca" minWidth="-Infinity"
+                               style="-fx-padding: 5 10 5 10; -fx-background-color: #e0e7ff; -fx-border-color: #a5b4fc; -fx-border-radius: 12; -fx-background-radius: 12;">
+                            <font>
+                                <Font name="Segoe UI Semibold" size="12.0" />
+                            </font>
+                        </Label>
+                    </children>
+                </HBox>
 
                 <GridPane hgap="14.0" maxWidth="1.7976931348623157E308">
                     <columnConstraints>
@@ -28,29 +38,18 @@
                         <ColumnConstraints percentWidth="25.0" hgrow="ALWAYS" fillWidth="true" />
                     </columnConstraints>
                     <children>
-                        <HBox GridPane.columnIndex="0" alignment="CENTER_LEFT" spacing="12.0" minHeight="74.0" prefHeight="74.0" maxHeight="74.0" maxWidth="1.7976931348623157E308"
+                        <HBox GridPane.columnIndex="0" alignment="CENTER_LEFT" spacing="12.0" minHeight="74.0" prefHeight="74.0" maxWidth="1.7976931348623157E308"
                               style="-fx-padding: 12; -fx-background-color: white; -fx-border-color: #cbd5e1; -fx-border-radius: 12; -fx-background-radius: 12;">
                             <children>
                                 <Region prefWidth="6.0" minWidth="6.0" maxWidth="6.0" prefHeight="48.0" style="-fx-background-color: #3b82f6; -fx-background-radius: 12;" />
                                 <VBox spacing="4.0" minWidth="0.0" maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS">
                                     <children>
-                                        <HBox alignment="CENTER_LEFT" spacing="8.0">
-                                            <children>
-                                                <Label fx:id="statusTitle" text="Status" textFill="#475569">
-                                                    <font>
-                                                        <Font name="Segoe UI Semibold" size="12.0" />
-                                                    </font>
-                                                </Label>
-                                                <Region HBox.hgrow="ALWAYS" />
-                                                <Label fx:id="statusBadge" text="Ready" textFill="#4338ca" minWidth="-Infinity"
-                                                       style="-fx-padding: 5 10 5 10; -fx-background-color: #e0e7ff; -fx-border-color: #a5b4fc; -fx-border-radius: 12; -fx-background-radius: 12;">
-                                                    <font>
-                                                        <Font name="Segoe UI Semibold" size="12.0" />
-                                                    </font>
-                                                </Label>
-                                            </children>
-                                        </HBox>
-                                        <Label fx:id="statusText" text="Start a new game." textFill="#0f172a" wrapText="true" maxHeight="42.0" maxWidth="1.7976931348623157E308">
+                                        <Label fx:id="statusTitle" text="Status" textFill="#475569">
+                                            <font>
+                                                <Font name="Segoe UI Semibold" size="12.0" />
+                                            </font>
+                                        </Label>
+                                        <Label fx:id="statusText" text="Start a new game." textFill="#0f172a" wrapText="true" minWidth="0.0" maxWidth="1.7976931348623157E308">
                                             <font>
                                                 <Font name="Segoe UI Bold" size="18.0" />
                                             </font>
