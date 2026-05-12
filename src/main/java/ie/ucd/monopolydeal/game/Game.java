@@ -132,6 +132,9 @@ public class Game {
 
         actionsUsed = 0;
 
+        if(currentPlayerIndex==0){
+            turnCount++;
+        }
 
         if(turnCount != 1){
             int drawCardsNumber;
@@ -143,9 +146,7 @@ public class Game {
             drawCards(getCurrPlayer(),drawCardsNumber);
         }
 
-        if(currentPlayerIndex==0){
-            turnCount++;
-        }
+
 
     }
 
