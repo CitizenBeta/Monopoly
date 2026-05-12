@@ -15,14 +15,18 @@ public class Game {
     private boolean started;
     private Deck deck = new Deck() ;
     private List<String> log = new ArrayList<>();
+    private List<UsedCardRecord> usedCardHistory = new ArrayList<>();
     private boolean gameOver;
+    private int turn;
     public void setup(List<String> names) {
         players.clear();
+        usedCardHistory.clear();
         currentPlayerIndex = 0;
         actionsUsed = 0;
-        turnCount = 1;
+        turnCount = 0;
         started = true;
         gameOver = false;
+        turn = 0;
 
         for (int i = 0; i < names.size(); i++) {
             Player player = new Player(names.get(i), i + 1);
@@ -32,6 +36,8 @@ public class Game {
             drawCards(player,2);
             players.add(player);
         }
+
+        startTurn();
     }
 
 
@@ -39,8 +45,16 @@ public class Game {
         return log;
     }
 
+    public List<UsedCardRecord> getUsedCardHistory() {
+        return new ArrayList<>(usedCardHistory);
+    }
+
     public boolean isOver(){
         return gameOver;
+    }
+
+    public int getTurn(){
+        return turn;
     }
 
 
@@ -90,13 +104,14 @@ public class Game {
             return false;
         }
 
-        if (current.isHandFull()) {
+        if (actionsUsed >= Player.MAX_ACTIONS_PER_TURN) {
             return false;
         }
 
         playSpecificCard(current,card,dm);
         actionsUsed++;
         current.removeCardFromHand(card);
+        recordUsedCard(current, card, "Played");
         return true;
     }
 
@@ -123,6 +138,8 @@ public class Game {
                 discard = currPlayer.getCardsAtHand().getLast();
             }
             currPlayer.removeCardFromHand(discard);
+            deck.discard(discard);
+            recordUsedCard(currPlayer, discard, "Discarded");
         }
 
         currentPlayerIndex++;
@@ -131,23 +148,20 @@ public class Game {
         }
 
         actionsUsed = 0;
+        startTurn();
+    }
 
-        if(currentPlayerIndex==0){
-            turnCount++;
+    private void startTurn() {
+        Player player = getCurrPlayer();
+        int drawCardsNumber = 2;
+
+        if (player.getCardsAtHand().isEmpty()) {
+            drawCardsNumber = 5;
         }
 
-        if(turnCount != 1){
-            int drawCardsNumber;
-            if(getCurrPlayer().getCardsAtHand().isEmpty()){
-                drawCardsNumber = 5;
-            }else{
-                drawCardsNumber = 2;
-            }
-            drawCards(getCurrPlayer(),drawCardsNumber);
-        }
-
-
-
+        drawCards(player, drawCardsNumber);
+        turnCount++;
+        turn = turnCount;
     }
 
     private void drawCards(Player player, int number){
@@ -157,6 +171,13 @@ public class Game {
                player.addCardToHand(card);
            }
         }
+    }
+
+    private void recordUsedCard(Player player, Card card, String action) {
+        usedCardHistory.add(0, new UsedCardRecord(action, player.getName(), card));
+    }
+
+    public record UsedCardRecord(String action, String playerName, Card card) {
     }
 
 

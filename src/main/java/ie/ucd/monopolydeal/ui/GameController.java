@@ -29,6 +29,7 @@ public class GameController implements DecisionMaker {
     @FXML private Label piles;
     @FXML private Label leadingPlayer;
     @FXML private Button newGameButton;
+    @FXML private Button usedCardsButton;
     @FXML private Button playButton;
     @FXML private Button moveWildButton;
     @FXML private Button endTurnButton;
@@ -46,6 +47,7 @@ public class GameController implements DecisionMaker {
     private void initialize() {
         // Set buttons
         setActionButton(newGameButton, Color.rgb(37, 99, 235), true);
+        setActionButton(usedCardsButton, Color.rgb(37, 99, 235), false);
         setActionButton(playButton, Color.rgb(22, 163, 74), true);
         setActionButton(moveWildButton, Color.rgb(22, 163, 74), false);
         setActionButton(endTurnButton, Color.rgb(220, 38, 38), false);
@@ -101,6 +103,78 @@ public class GameController implements DecisionMaker {
         game.setup(names);
         statusText.setText("Game started.");
         refresh();
+    }
+
+    @FXML
+    private void onUsedCards() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Used Cards");
+        alert.setHeaderText("Used / discarded cards, newest first");
+
+        VBox cardList = new VBox(10);
+        cardList.setPadding(new Insets(10));
+        cardList.setFillWidth(true);
+
+        List<Game.UsedCardRecord> history = game.getUsedCardHistory();
+        if (history.isEmpty()) {
+            cardList.getChildren().add(noCardBox("No cards yet", "No cards have been used or discarded yet."));
+        } else {
+            for (Game.UsedCardRecord record : history) {
+                cardList.getChildren().add(newUsedCardBox(record));
+            }
+        }
+
+        ScrollPane scrollPane = new ScrollPane(cardList);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setPrefSize(520, 420);
+
+        alert.getDialogPane().setContent(scrollPane);
+        alert.showAndWait();
+    }
+
+    private HBox newUsedCardBox(Game.UsedCardRecord record) {
+        Card card = record.card();
+
+        Label name = new Label(card.getName());
+        name.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        name.setTextFill(Color.rgb(15, 23, 42));
+
+        String detailText = cardDetail(card);
+        Label detail = new Label(detailText);
+        detail.setWrapText(true);
+        detail.setTextFill(Color.rgb(71, 85, 105));
+
+        VBox textBox;
+        if (detailText.isEmpty()) {
+            textBox = new VBox(4, name);
+        } else {
+            textBox = new VBox(4, name, detail);
+        }
+        textBox.setFillWidth(true);
+        textBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(textBox, Priority.ALWAYS);
+
+        Label actionBadge = usedCardBadge(record);
+
+        HBox box = new HBox(12, newCardBar(card), textBox, actionBadge);
+        box.setAlignment(Pos.CENTER_LEFT);
+        box.setFillHeight(true);
+        box.setPadding(new Insets(12));
+        box.setMaxWidth(Double.MAX_VALUE);
+        box.setBackground(setSolidBackground(Color.WHITE));
+        box.setBorder(roundCorner(Color.rgb(203, 213, 225)));
+        return box;
+    }
+
+    private Label usedCardBadge(Game.UsedCardRecord record) {
+        String text = record.action() + " by " + record.playerName();
+
+        if (record.action().equals("Discarded")) {
+            return newBadge(text, Color.rgb(254, 226, 226), Color.rgb(153, 27, 27));
+        }
+
+        return newBadge(text, Color.rgb(220, 252, 231), Color.rgb(22, 101, 52));
     }
 
     // Run when the user presses Play Selected button
@@ -640,7 +714,36 @@ public class GameController implements DecisionMaker {
     @Override public PropertyColor selectColor(String prompt, List<PropertyColor> players) { return null; }
     @Override public UseMode useCard(ActionCard action) { return null; }
     @Override public WildPropertyCard selectWildCardToMove(Player current, List<WildPropertyCard> wildCards) { return null; }
-    @Override public Card selectDiscard(Player current, List<Card> cards) { return null; }
+    @Override
+    public Card selectDiscard(Player current, List<Card> cards) {
+        if (cards.isEmpty()) {
+            return null;
+        }
+
+        List<String> options = new ArrayList<>();
+        for (int i = 0; i < cards.size(); i++) {
+            Card card = cards.get(i);
+            String option = (i + 1) + ". " + card.getName();
+            String detail = cardDetail(card);
+            if (!detail.isEmpty()) {
+                option += " - " + detail;
+            }
+            options.add(option);
+        }
+
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(options.get(0), FXCollections.observableArrayList(options));
+        dialog.setTitle("Discard Card");
+        dialog.setHeaderText(current.getName() + " has more than 7 cards.");
+        dialog.setContentText("Choose one card to discard:");
+
+        String selected = dialog.showAndWait().orElse(null);
+        if (selected == null) {
+            return null;
+        }
+
+        int index = options.indexOf(selected);
+        return cards.get(index);
+    }
     @Override public Card selectPropertyCard(Player owner, List<Card> cards, String prompt) { return null; }
     @Override public Card selectPaymentCard(Player owner, List<Card> cards, String prompt) { return null; }
     @Override public boolean reconfirm(String prompt) { return false; }
