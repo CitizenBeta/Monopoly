@@ -104,14 +104,15 @@ public class Game {
             return false;
         }
 
-        playSpecificCard(current,card,dm);
+        boolean play = playSpecificCard(current,card,dm);
         actionsUsed++;
         current.removeCardFromHand(card);
         recordUsedCard(current, card, "Played");
-        return true;
+        return play;
     }
 
-    public void playSpecificCard(Player player, Card card, DecisionMaker dm){
+    public boolean playSpecificCard(Player player, Card card, DecisionMaker dm){
+        if()
         player.addCardToBank(card);
     }
 
