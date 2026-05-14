@@ -56,26 +56,24 @@ public class GameController implements DecisionMaker {
         statusText.setWrapText(true);
         statusText.setMinWidth(0);
         statusText.setMaxWidth(Double.MAX_VALUE);
-        statusText.prefWidthProperty().bind(((Region) statusText.getParent()).widthProperty());
         statusText.setFont(Font.font("Segoe UI Bold", 16));
         statusText.setTextFill(Color.rgb(15, 23, 42));
         leadingPlayer.setWrapText(true);
 
-        // Set content area
+        // Set hand card area
         handCardsBox.setFillHeight(false);
         handCardsBox.setAlignment(Pos.CENTER);
         cardsScroll.setFitToHeight(true);
         cardsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         cardsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         cardsScroll.setPannable(false);
-        cardsScroll.viewportBoundsProperty().addListener((event, oldBounds, newBounds) ->
-                resizeHandArea(newBounds.getWidth(), newBounds.getHeight()));
+        cardsScroll.viewportBoundsProperty().addListener((_, _, bounds) -> resizeHandArea(bounds.getWidth(), bounds.getHeight()));
         cardsScroll.setVvalue(0);
         cardsScroll.vvalueProperty().addListener((event, oldValue, newValue) -> cardsScroll.setVvalue(0));
         cardsScroll.setOnScroll(event -> {
             if (event.getDeltaY() != 0) {
                 double nextValue = cardsScroll.getHvalue() - event.getDeltaY() / handCardsBox.getWidth();
-                cardsScroll.setHvalue(Math.max(0, Math.min(1, nextValue)));
+                cardsScroll.setHvalue(Math.clamp(nextValue, 0, 1));
                 event.consume();
             }
         });
@@ -91,17 +89,17 @@ public class GameController implements DecisionMaker {
             }
         });
 
+        // Set player table area
         tableBox.setFillHeight(true);
         tableBox.setAlignment(Pos.TOP_CENTER);
         tableScroll.setFitToWidth(true);
         tableScroll.setFitToHeight(true);
         tableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         tableScroll.setPannable(true);
-        tableScroll.viewportBoundsProperty().addListener((event, oldBounds, newBounds) ->
-                resizeTableArea(newBounds.getWidth(), newBounds.getHeight()));
+        tableScroll.viewportBoundsProperty().addListener((_, _, bounds) -> resizeTableArea(bounds.getWidth(), bounds.getHeight()));
         tableScroll.setFocusTraversable(false);
         tableScroll.setStyle("-fx-background-color: transparent; -fx-background-insets: 0; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
-        tableScroll.setOnMousePressed(event -> rootPane.requestFocus());
+        tableScroll.setOnMousePressed(e -> rootPane.requestFocus());
 
         refresh();
     }
@@ -130,7 +128,7 @@ public class GameController implements DecisionMaker {
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setPrefSize(520, 420);
 
-        List<Game.UsedCardRecord> history = game.getUsedCardHistory();
+        List<Game.usedCard> history = game.getUsedCards();
         if (history.isEmpty()) {
             StackPane emptyBox = new StackPane(noCardBox("No cards yet", "No cards have been used or discarded yet"));
             emptyBox.setAlignment(Pos.CENTER);
@@ -141,7 +139,7 @@ public class GameController implements DecisionMaker {
             cardList.setPadding(new Insets(10));
             cardList.setFillWidth(true);
 
-            for (Game.UsedCardRecord record : history) {
+            for (Game.usedCard record : history) {
                 cardList.getChildren().add(newUsedCardBox(record));
             }
 
@@ -151,7 +149,7 @@ public class GameController implements DecisionMaker {
         alert.showAndWait();
     }
 
-    private HBox newUsedCardBox(Game.UsedCardRecord record) {
+    private HBox newUsedCardBox(Game.usedCard record) {
         Card card = record.card();
 
         Label name = new Label(card.getName().replace("/", "/\u200B"));
@@ -187,11 +185,11 @@ public class GameController implements DecisionMaker {
 
     private Region newUsedCardBar(Card card) {
         if (card instanceof WildPropertyCard wildCard && wildCard.getPossibleColors().size() == 2) {
-            return newDoubleColorVerticalBar(wildCard.getPossibleColors().get(0), wildCard.getPossibleColors().get(1));
+            return newDoubleColorBar(wildCard.getPossibleColors().get(0), wildCard.getPossibleColors().get(1), 6, 44, true);
         }
 
         if (card instanceof ActionCard actionCard && actionCard.getColors().size() == 2) {
-            return newDoubleColorVerticalBar(actionCard.getColors().get(0), actionCard.getColors().get(1));
+            return newDoubleColorBar(actionCard.getColors().get(0), actionCard.getColors().get(1), 6, 44, true);
         }
 
         Region bar = new Region();
@@ -201,23 +199,8 @@ public class GameController implements DecisionMaker {
         return bar;
     }
 
-    private Region newDoubleColorVerticalBar(PropertyColor topColor, PropertyColor bottomColor) {
-        Color firstColor = propertyColor(topColor);
-        Color secondColor = propertyColor(bottomColor);
-
-        Region bar = new Region();
-        bar.setPrefSize(6, 44);
-        bar.setMinWidth(6);
-        bar.setStyle("-fx-background-color: linear-gradient(to bottom, "
-                + cssColor(firstColor) + " 0%, "
-                + cssColor(firstColor) + " 50%, "
-                + cssColor(secondColor) + " 50%, "
-                + cssColor(secondColor) + " 100%); -fx-background-radius: 12;");
-        return bar;
-    }
-
-    private Label usedCardBadge(Game.UsedCardRecord record) {
-        String text = record.action() + " by " + record.playerName();
+    private Label usedCardBadge(Game.usedCard record) {
+        String text = record.action() + " by " + record.player();
 
         if (record.action().equals("Discarded")) {
             return newBadge(text, Color.rgb(254, 226, 226), Color.rgb(153, 27, 27));
@@ -515,16 +498,12 @@ public class GameController implements DecisionMaker {
         PropertyColor leftColor = wildCard.getPossibleColors().get(0);
         PropertyColor rightColor = wildCard.getPossibleColors().get(1);
 
-        Label leftRent = new Label(leftColor.getRentDescription());
-        leftRent.setFont(Font.font("Segoe UI", 12));
-        leftRent.setTextFill(Color.rgb(71, 85, 105));
+        Label leftRent = newSmallCardText(leftColor.getRentDescription());
         leftRent.setAlignment(Pos.CENTER_LEFT);
         leftRent.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(leftRent, Priority.ALWAYS);
 
-        Label rightRent = new Label(rightColor.getRentDescription());
-        rightRent.setFont(Font.font("Segoe UI", 12));
-        rightRent.setTextFill(Color.rgb(71, 85, 105));
+        Label rightRent = newSmallCardText(rightColor.getRentDescription());
         rightRent.setAlignment(Pos.CENTER_RIGHT);
         rightRent.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(rightRent, Priority.ALWAYS);
@@ -538,11 +517,11 @@ public class GameController implements DecisionMaker {
     // Add color bar for cards
     private Region newCardBar(Card card) {
         if (card instanceof WildPropertyCard wildCard && wildCard.getPossibleColors().size() == 2) {
-            return newDoubleColorBar(wildCard.getPossibleColors().get(0), wildCard.getPossibleColors().get(1));
+            return newDoubleColorBar(wildCard.getPossibleColors().get(0), wildCard.getPossibleColors().get(1), 84, 6, false);
         }
 
         if (card instanceof ActionCard actionCard && actionCard.getColors().size() == 2) {
-            return newDoubleColorBar(actionCard.getColors().get(0), actionCard.getColors().get(1));
+            return newDoubleColorBar(actionCard.getColors().get(0), actionCard.getColors().get(1), 84, 6, false);
         }
 
         if (card instanceof PropertyCard propertyCard) {
@@ -552,16 +531,30 @@ public class GameController implements DecisionMaker {
         return newCardBarSegment(cardColor(card));
     }
 
-    private Region newDoubleColorBar(PropertyColor firstColor, PropertyColor secondColor) {
+    private Region newDoubleColorBar(PropertyColor firstColor, PropertyColor secondColor,
+                                     double width, double height, boolean vertical) {
         Color leftColor = propertyColor(firstColor);
         Color rightColor = propertyColor(secondColor);
+        String direction;
+
+        if (vertical) {
+            direction = "to bottom";
+        } else {
+            direction = "to right";
+        }
 
         Region bar = new Region();
-        bar.setPrefSize(84, 6);
-        bar.setMinHeight(6);
-        bar.setMaxHeight(6);
-        bar.setMaxWidth(Double.MAX_VALUE);
-        bar.setStyle("-fx-background-color: linear-gradient(to right, "
+        bar.setPrefSize(width, height);
+
+        if (vertical) {
+            bar.setMinWidth(width);
+        } else {
+            bar.setMinHeight(height);
+            bar.setMaxHeight(height);
+            bar.setMaxWidth(Double.MAX_VALUE);
+        }
+
+        bar.setStyle("-fx-background-color: linear-gradient(" + direction + ", "
                 + cssColor(leftColor) + " 0%, "
                 + cssColor(leftColor) + " 50%, "
                 + cssColor(rightColor) + " 50%, "
@@ -782,18 +775,7 @@ public class GameController implements DecisionMaker {
     // Add color bar for small card in bank
     private Region newBankCardBar(Card card) {
         if (card instanceof WildPropertyCard wildCard && wildCard.getPossibleColors().size() >= 2) {
-            Color topColor = propertyColor(wildCard.getPossibleColors().get(0));
-            Color bottomColor = propertyColor(wildCard.getPossibleColors().get(1));
-
-            Region bar = new Region();
-            bar.setPrefSize(4, 20);
-            bar.setMinWidth(4);
-            bar.setStyle("-fx-background-color: linear-gradient(to bottom, "
-                    + cssColor(topColor) + " 0%, "
-                    + cssColor(topColor) + " 50%, "
-                    + cssColor(bottomColor) + " 50%, "
-                    + cssColor(bottomColor) + " 100%); -fx-background-radius: 12;");
-            return bar;
+            return newDoubleColorBar(wildCard.getPossibleColors().get(0), wildCard.getPossibleColors().get(1), 4, 20, true);
         }
 
         Region bar = new Region();

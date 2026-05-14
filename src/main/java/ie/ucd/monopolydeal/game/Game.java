@@ -14,11 +14,12 @@ public class Game {
     private int turnCount;
     private boolean started;
     private Deck deck = new Deck() ;
-    private List<UsedCardRecord> usedCardHistory = new ArrayList<>();
+    private List<usedCard> usedCards = new ArrayList<>();
     private boolean gameOver;
+
     public void setup(List<String> names) {
         players.clear();
-        usedCardHistory.clear();
+        usedCards.clear();
         deck = new Deck();
         currentPlayerIndex = 0;
         actionsUsed = 0;
@@ -38,17 +39,13 @@ public class Game {
         startTurn();
     }
 
-
-
-    public List<UsedCardRecord> getUsedCardHistory() {
-        return new ArrayList<>(usedCardHistory);
+    public List<usedCard> getUsedCards() {
+        return new ArrayList<>(usedCards);
     }
 
     public boolean isOver(){
         return gameOver;
     }
-
-
 
     public boolean isStarted() {
         return started;
@@ -74,10 +71,6 @@ public class Game {
         return deck.getDrawPileNumber();
     }
 
-    public int getDiscardPileNumber() {
-        return deck.getDiscardPileNumber();
-    }
-
     public int getTotalCardNumber() {
         return deck.getTotalCardNumber();
     }
@@ -88,7 +81,6 @@ public class Game {
         otherPlayers.remove(getCurrPlayer());
         return otherPlayers;
     }
-
 
     public boolean playCard(Card card, DecisionMaker dm) {
         if (!started || card == null) {
@@ -107,7 +99,7 @@ public class Game {
         playSpecificCard(current,card,dm);
         actionsUsed++;
         current.removeCardFromHand(card);
-        recordUsedCard(current, card, "Played");
+        addUsedCard(current, card, "Played");
         return true;
     }
 
@@ -145,7 +137,7 @@ public class Game {
             for (Card discard : discards) {
                 currPlayer.removeCardFromHand(discard);
                 deck.discard(discard);
-                recordUsedCard(currPlayer, discard, "Discarded");
+                addUsedCard(currPlayer, discard, "Discarded");
             }
         }
 
@@ -182,13 +174,9 @@ public class Game {
         }
     }
 
-    private void recordUsedCard(Player player, Card card, String action) {
-        usedCardHistory.add(0, new UsedCardRecord(action, player.getName(), card));
+    private void addUsedCard(Player player, Card card, String action) {
+        usedCards.addFirst(new usedCard(action, player.getName(), card));
     }
 
-    public record UsedCardRecord(String action, String playerName, Card card) {
-    }
-
-
-
+    public record usedCard(String action, String player, Card card) {}
 }
