@@ -212,12 +212,21 @@ public class GameController implements DecisionMaker {
     // Run when the user presses Play Selected button
     @FXML
     private void onPlaySelected() {
-        if (!game.isStarted() || selectedCard == null) {
+        if (!game.isStarted() || game.isOver() || selectedCard == null) {
             return;
         }
 
         if (game.playCard(selectedCard,this)) {
-            statusText.setText("Played " + statusCardText(selectedCard) + ".");
+            if (game.isOver()) {
+                Player winner = game.getWinner();
+                if (winner == null) {
+                    statusText.setText("Game over.");
+                } else {
+                    statusText.setText(winner.getName() + " won.");
+                }
+            } else {
+                statusText.setText("Played " + statusCardText(selectedCard) + ".");
+            }
             selectedCard = null;
         } else {
             statusText.setText("Cannot play " + statusCardText(selectedCard) + ".");
@@ -229,7 +238,7 @@ public class GameController implements DecisionMaker {
     // Run when the user presses Move wild button
     @FXML
     private void onMoveWild() {
-        if (!game.isStarted()) {
+        if (!game.isStarted() || game.isOver()) {
             return;
         }
 
@@ -258,7 +267,7 @@ public class GameController implements DecisionMaker {
 
     @FXML
     private void onEndTurn() {
-        if (!game.isStarted()) {
+        if (!game.isStarted() || game.isOver()) {
             return;
         }
 
@@ -315,7 +324,11 @@ public class GameController implements DecisionMaker {
         updateHand(player);
         updateTable(game.getPlayers());
         updateTurnCount(game.getTurnCount());
-        updateStatusBadge("Turn Active", Color.rgb(219, 234, 254), Color.rgb(147, 197, 253), Color.rgb(29, 78, 216));
+        if (game.isOver()) {
+            updateStatusBadge("Game Over", Color.rgb(254, 226, 226), Color.rgb(252, 165, 165), Color.rgb(153, 27, 27));
+        } else {
+            updateStatusBadge("Turn Active", Color.rgb(219, 234, 254), Color.rgb(147, 197, 253), Color.rgb(29, 78, 216));
+        }
     }
 
     // Pop a dialog to ask players' name
@@ -702,6 +715,7 @@ public class GameController implements DecisionMaker {
         tableBox.setAlignment(Pos.TOP_CENTER);
         for (Player player : players) {
             VBox playerBox = newPlayerBox(player);
+            playerBox.setPrefWidth(0);
             HBox.setHgrow(playerBox, Priority.ALWAYS);
             tableBox.getChildren().add(playerBox);
         }
@@ -744,12 +758,17 @@ public class GameController implements DecisionMaker {
             bank.getChildren().add(emptyBank);
         } else {
             FlowPane bankCards = new FlowPane(6, 6);
-            bankCards.setPrefWrapLength(320);
+            bankCards.setPrefWrapLength(160);
             for (Card card : player.getCardsAtBank()) {
                 bankCards.getChildren().add(newBankBox(card));
             }
             bank.getChildren().add(bankCards);
         }
+        bank.setMinWidth(0);
+        bank.setPrefWidth(0);
+        bank.setMaxWidth(Double.MAX_VALUE);
+        bank.setFillWidth(true);
+        HBox.setHgrow(bank, Priority.ALWAYS);
 
         // Add property section
         VBox properties = new VBox(4);
@@ -772,8 +791,20 @@ public class GameController implements DecisionMaker {
             emptyProperties.setTextFill(Color.rgb(100, 116, 139));
             properties.getChildren().add(emptyProperties);
         }
+        properties.setMinWidth(0);
+        properties.setPrefWidth(0);
+        properties.setMaxWidth(Double.MAX_VALUE);
+        properties.setFillWidth(true);
+        HBox.setHgrow(properties, Priority.ALWAYS);
 
-        VBox box = new VBox(8, header, new Separator(), bank, properties);
+        HBox cardArea = new HBox(16, bank, properties);
+        cardArea.setAlignment(Pos.TOP_LEFT);
+        cardArea.setFillHeight(true);
+        cardArea.setMinWidth(0);
+        cardArea.setMaxWidth(Double.MAX_VALUE);
+        VBox.setVgrow(cardArea, Priority.ALWAYS);
+
+        VBox box = new VBox(8, header, new Separator(), cardArea);
         box.setPadding(new Insets(12));
         box.setMinWidth(0);
         box.setPrefHeight(180);
@@ -875,13 +906,13 @@ public class GameController implements DecisionMaker {
     private void updateButtonStatus() {
         // Play selected card is available when,
         // the game has started, has selected a card, has not used all 3 actions
-        playButton.setDisable(!game.isStarted() || selectedCard == null || game.getActionsUsed() >= Player.MAX_ACTIONS_PER_TURN);
+        playButton.setDisable(!game.isStarted() || game.isOver() || selectedCard == null || game.getActionsUsed() >= Player.MAX_ACTIONS_PER_TURN);
         boolean canMoveWild = false;
-        if (game.isStarted()) {
+        if (game.isStarted() && !game.isOver()) {
             canMoveWild = !game.getCurrPlayer().getPlacedWildCards().isEmpty();
         }
         moveWildButton.setDisable(!canMoveWild);
-        endTurnButton.setDisable(!game.isStarted());
+        endTurnButton.setDisable(!game.isStarted() || game.isOver());
     }
 
     private void updateActionsBadge(int actionsUsed) {
@@ -993,6 +1024,14 @@ public class GameController implements DecisionMaker {
     }
 
     private <T> T chooseOption(String title, String prompt, List<T> options, Function<T, String> text) {
+        return chooseOption(title, prompt, options, text, true);
+    }
+
+    private <T> T chooseRequiredOption(String title, String prompt, List<T> options, Function<T, String> text) {
+        return chooseOption(title, prompt, options, text, false);
+    }
+
+    private <T> T chooseOption(String title, String prompt, List<T> options, Function<T, String> text, boolean allowCancel) {
         if (options == null || options.isEmpty()) {
             return null;
         }
@@ -1000,35 +1039,57 @@ public class GameController implements DecisionMaker {
         Dialog<T> dialog = new Dialog<>();
         dialog.setTitle(title);
         dialog.setHeaderText(prompt);
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
+        if (allowCancel) {
+            dialog.getDialogPane().getButtonTypes().add(ButtonType.CANCEL);
+        }
 
-        ListView<T> listView = new ListView<>(FXCollections.observableArrayList(options));
-        listView.setPrefSize(360, Math.min(260, Math.max(120, options.size() * 34 + 12)));
-        listView.setCellFactory(view -> new ListCell<>() {
-            @Override
-            protected void updateItem(T item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(text.apply(item));
-                }
-            }
-        });
-        listView.getSelectionModel().selectFirst();
+        ToggleGroup group = new ToggleGroup();
+        VBox optionsBox = new VBox(8);
+        optionsBox.setPadding(new Insets(8));
+
+        List<RadioButton> radioButtons = new ArrayList<>();
+        for (T option : options) {
+            RadioButton radioButton = new RadioButton(text.apply(option));
+            radioButton.setToggleGroup(group);
+            radioButton.setWrapText(true);
+            radioButton.setMaxWidth(Double.MAX_VALUE);
+            radioButtons.add(radioButton);
+            optionsBox.getChildren().add(radioButton);
+        }
+        radioButtons.getFirst().setSelected(true);
+
+        ScrollPane scrollPane = new ScrollPane(optionsBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setPrefSize(420, Math.min(280, Math.max(120, options.size() * 38 + 24)));
 
         Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
-        okButton.disableProperty().bind(listView.getSelectionModel().selectedItemProperty().isNull());
+        okButton.disableProperty().bind(group.selectedToggleProperty().isNull());
 
-        dialog.getDialogPane().setContent(listView);
+        dialog.getDialogPane().setContent(scrollPane);
         dialog.setResultConverter(button -> {
             if (button == ButtonType.OK) {
-                return listView.getSelectionModel().getSelectedItem();
+                Toggle selectedToggle = group.getSelectedToggle();
+                for (int i = 0; i < radioButtons.size(); i++) {
+                    if (radioButtons.get(i) == selectedToggle) {
+                        return options.get(i);
+                    }
+                }
             }
             return null;
         });
 
-        return dialog.showAndWait().orElse(null);
+        T result = dialog.showAndWait().orElse(null);
+        if (result == null && !allowCancel) {
+            Toggle selectedToggle = group.getSelectedToggle();
+            for (int i = 0; i < radioButtons.size(); i++) {
+                if (radioButtons.get(i) == selectedToggle) {
+                    return options.get(i);
+                }
+            }
+        }
+        return result;
     }
 
     @Override
@@ -1043,7 +1104,13 @@ public class GameController implements DecisionMaker {
 
     @Override
     public UseMode useCard(ActionCard action) {
-        return chooseOption("Use Card", "How do you want to use " + action.getName() + "?", List.of(UseMode.PLAY, UseMode.BANK), mode -> {
+        List<UseMode> modes = new ArrayList<>();
+        if (action.getActionType() != ActionType.JUST_SAY_NO) {
+            modes.add(UseMode.PLAY);
+        }
+        modes.add(UseMode.BANK);
+
+        return chooseOption("Use Card", "How do you want to use " + action.getName() + "?", modes, mode -> {
             if (mode == UseMode.PLAY) {
                 return "Play card";
             }
@@ -1133,12 +1200,12 @@ public class GameController implements DecisionMaker {
 
     @Override
     public Card selectPropertyCard(Player owner, List<Card> cards, String prompt) {
-        return chooseOption("Choose Property", prompt, cards, Card::getName);
+        return chooseOption("Choose Card", prompt, cards, card -> cardOptionText(owner, card));
     }
 
     @Override
     public Card selectPaymentCard(Player owner, List<Card> cards, String prompt) {
-        return chooseOption("Choose Payment", prompt, cards, Card::getName);
+        return chooseRequiredOption("Choose Payment", prompt, cards, card -> paymentOptionText(owner, card));
     }
 
     @Override
@@ -1146,5 +1213,34 @@ public class GameController implements DecisionMaker {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setHeaderText(prompt);
         return alert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
+    }
+
+    private String cardOptionText(Player owner, Card card) {
+        if (owner != null) {
+            PropertyColor color = owner.getPropertyColor(card);
+            if (color != null) {
+                return card.getName() + " - " + color.getName();
+            }
+        }
+        return card.getName();
+    }
+
+    private String paymentOptionText(Player owner, Card card) {
+        String location;
+        if (owner != null && owner.getCardsAtBank().contains(card)) {
+            location = "Bank";
+        } else {
+            PropertyColor color = null;
+            if (owner != null) {
+                color = owner.getPropertyColor(card);
+            }
+            if (color == null) {
+                location = "Table";
+            } else {
+                location = color.getName();
+            }
+        }
+
+        return card.getName() + " - " + location + " - " + card.getBankValue() + "M";
     }
 }
