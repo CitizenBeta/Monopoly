@@ -69,7 +69,6 @@ public class PropertySet {
             return false;
         }
         hotelCount = 1;
-        houseCount = 0;
         return true;
     }
 

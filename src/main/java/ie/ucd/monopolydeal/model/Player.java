@@ -42,6 +42,10 @@ public class Player {
         hand.remove(card);
     }
 
+    public boolean removeCardFromBank(Card card) {
+        return bankCash.remove(card);
+    }
+
     public void addCardToBank(Card card) {
         if (card != null) {
             bankCash.add(card);
@@ -121,29 +125,44 @@ public class Player {
         targetSet.addProperty(card);
     }
 
-    public void receivePropertyCard(Card card, PropertyColor color) {
+    public boolean receivePropertyCard(Card card, PropertyColor color) {
         PropertySet set = propertySets.get(color);
         if (set == null || !set.canAddProperty()) {
-            return;
+            return false;
         }
 
         if (card instanceof WildPropertyCard wild) {
             if (!wild.getPossibleColors().contains(color)) {
-                return;
+                return false;
             }
             wild.setCurrentColor(color);
         }
 
+        if (card instanceof PropertyCard propertyCard && propertyCard.getColor() != color) {
+            return false;
+        }
+
         set.addProperty(card);
+        return true;
     }
 
-    public void removePropertyCard(Card card) {
+    public boolean removePropertyCard(Card card) {
         for (PropertySet set : propertySets.values()) {
             if (set.getCards().contains(card)) {
                 set.removeProperty(card);
-                return;
+                return true;
             }
         }
+        return false;
+    }
+
+    public PropertyColor getPropertyColor(Card card) {
+        for (Map.Entry<PropertyColor, PropertySet> entry : propertySets.entrySet()) {
+            if (entry.getValue().getCards().contains(card)) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 
     public List<Card> getStealableCards() {
@@ -192,10 +211,17 @@ public class Player {
         return colors;
     }
 
-    public void transferFullSetTo(Player recipient, PropertyColor color) {
+    public boolean transferFullSetTo(Player recipient, PropertyColor color) {
         PropertySet sourceSet = propertySets.get(color);
-        if (!sourceSet.isFullSet()) return;
         PropertySet targetSet = recipient.getPropertySets().get(color);
+        if (sourceSet == null || targetSet == null || !sourceSet.isFullSet()) {
+            return false;
+        }
+
+        if (targetSet.getCards().size() + sourceSet.getCards().size() > color.getSize()) {
+            return false;
+        }
+
         sourceSet.transferUpgradesTo(targetSet);
 
         List<Card> cardsToMove = new ArrayList<>(sourceSet.getCards());
@@ -203,6 +229,7 @@ public class Player {
             removePropertyCard(card);
             recipient.receivePropertyCard(card, color);
         }
+        return true;
     }
 
     public List<WildPropertyCard> getPlacedWildCards() {
