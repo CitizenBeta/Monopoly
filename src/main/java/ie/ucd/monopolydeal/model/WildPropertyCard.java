@@ -26,6 +26,11 @@ public class WildPropertyCard implements Card {
     }
 
     public void setCurrentColor(PropertyColor currentColor) {
+        if (currentColor == null) {
+            this.currentColor = null;
+            return;
+        }
+
         if (!possibleColors.contains(currentColor)) {
             throw new IllegalArgumentException("Invalid color for this wild card.");
         }

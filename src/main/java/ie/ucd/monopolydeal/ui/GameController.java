@@ -848,6 +848,10 @@ public class GameController implements DecisionMaker {
             cards.getChildren().add(newPropertyMiniBox(card, color));
         }
 
+        for (Card card : propertySet.getUpgradeCards()) {
+            cards.getChildren().add(newPropertyMiniBox(card, color));
+        }
+
         VBox box = new VBox(4, header, cards);
         box.setPadding(new Insets(4, 0, 0, 0));
         return box;
@@ -860,7 +864,13 @@ public class GameController implements DecisionMaker {
         name.setWrapText(true);
         name.setMaxWidth(120);
 
-        HBox box = new HBox(8, newColorBar(propertyColor(color), 4, 20, true), name);
+        Color barColor = propertyColor(color);
+        if (card instanceof ActionCard actionCard
+                && (actionCard.getActionType() == ActionType.HOUSE || actionCard.getActionType() == ActionType.HOTEL)) {
+            barColor = cardColor(card);
+        }
+
+        HBox box = new HBox(8, newColorBar(barColor, 4, 20, true), name);
         box.setAlignment(Pos.CENTER_LEFT);
         box.setPadding(new Insets(5, 10, 5, 9));
         box.setBackground(setSolidBackground(Color.WHITE));
@@ -925,7 +935,7 @@ public class GameController implements DecisionMaker {
             return false;
         }
 
-        return game.getActionsUsed() < Player.MAX_ACTIONS_PER_TURN;
+        return game.canPlayCard(selectedCard);
     }
 
     private void updateActionsBadge(int actionsUsed) {

@@ -152,13 +152,16 @@ public class Player {
                 set.removeProperty(card);
                 return true;
             }
+            if (set.removeUpgradeCard(card)) {
+                return true;
+            }
         }
         return false;
     }
 
     public PropertyColor getPropertyColor(Card card) {
         for (Map.Entry<PropertyColor, PropertySet> entry : propertySets.entrySet()) {
-            if (entry.getValue().getCards().contains(card)) {
+            if (entry.getValue().getAllCards().contains(card)) {
                 return entry.getKey();
             }
         }
@@ -175,12 +178,30 @@ public class Player {
         return stealable;
     }
 
-    public boolean addHouse(PropertyColor color) {
-        return propertySets.get(color).addHouse();
+    public boolean addHouse(PropertyColor color, ActionCard card) {
+        if (!hand.contains(card)) {
+            return false;
+        }
+
+        if (!propertySets.get(color).addHouse(card)) {
+            return false;
+        }
+
+        hand.remove(card);
+        return true;
     }
 
-    public boolean addHotel(PropertyColor color) {
-        return propertySets.get(color).addHotel();
+    public boolean addHotel(PropertyColor color, ActionCard card) {
+        if (!hand.contains(card)) {
+            return false;
+        }
+
+        if (!propertySets.get(color).addHotel(card)) {
+            return false;
+        }
+
+        hand.remove(card);
+        return true;
     }
 
     public void removeHouse(PropertyColor color) {
@@ -259,7 +280,7 @@ public class Player {
     public int getTotalAssetValue() {
         int total = getCashValue();
         for (PropertySet set : propertySets.values()) {
-            for (Card card : set.getCards()) {
+            for (Card card : set.getAllCards()) {
                 total += card.getBankValue();
             }
         }

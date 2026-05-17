@@ -6,8 +6,8 @@ import java.util.List;
 public class PropertySet {
     private final PropertyColor color;
     private final List<Card> cards = new ArrayList<>();
-    private int houseCount;
-    private int hotelCount;
+    private ActionCard houseCard;
+    private ActionCard hotelCard;
 
     public PropertySet(PropertyColor color) {
         this.color = color;
@@ -21,16 +21,47 @@ public class PropertySet {
         return cards;
     }
 
+    public List<Card> getUpgradeCards() {
+        List<Card> upgrades = new ArrayList<>();
+        if (houseCard != null) {
+            upgrades.add(houseCard);
+        }
+        if (hotelCard != null) {
+            upgrades.add(hotelCard);
+        }
+        return upgrades;
+    }
+
+    public List<Card> getAllCards() {
+        List<Card> allCards = new ArrayList<>(cards);
+        allCards.addAll(getUpgradeCards());
+        return allCards;
+    }
+
+    public ActionCard getHouseCard() {
+        return houseCard;
+    }
+
+    public ActionCard getHotelCard() {
+        return hotelCard;
+    }
+
     public int getPropertyCount() {
         return cards.size();
     }
 
     public int getHouseCount() {
-        return houseCount;
+        if (houseCard == null) {
+            return 0;
+        }
+        return 1;
     }
 
     public int getHotelCount() {
-        return hotelCount;
+        if (hotelCard == null) {
+            return 0;
+        }
+        return 1;
     }
 
     public boolean isFullSet() {
@@ -47,50 +78,65 @@ public class PropertySet {
 
     public void removeProperty(Card card) {
         cards.remove(card);
-        if (!isFullSet()) {
-            clearUpgrades();
-        }
     }
 
     public boolean canAddProperty() {
         return cards.size() < color.getSize();
     }
 
-    public boolean addHouse() {
-        if (!canAddHouse()) {
+    public boolean addHouse(ActionCard card) {
+        if (!canAddHouse() || card == null || card.getActionType() != ActionType.HOUSE) {
             return false;
         }
-        houseCount = 1;
+        houseCard = card;
         return true;
     }
 
-    public boolean addHotel() {
-        if (!canAddHotel()) {
+    public boolean addHotel(ActionCard card) {
+        if (!canAddHotel() || card == null || card.getActionType() != ActionType.HOTEL) {
             return false;
         }
-        hotelCount = 1;
+        hotelCard = card;
         return true;
+    }
+
+    public boolean removeUpgradeCard(Card card) {
+        if (card == houseCard) {
+            houseCard = null;
+            if (hotelCard != null) {
+                hotelCard = null;
+            }
+            return true;
+        }
+
+        if (card == hotelCard) {
+            hotelCard = null;
+            return true;
+        }
+
+        return false;
     }
 
     public void removeHouse() {
-        houseCount = 0;
+        houseCard = null;
+        hotelCard = null;
     }
 
     public void removeHotel() {
-        hotelCount = 0;
+        hotelCard = null;
     }
 
     public boolean canAddHouse() {
-        return isFullSet() && houseCount == 0 && hotelCount == 0;
+        return isFullSet() && houseCard == null && hotelCard == null;
     }
 
     public boolean canAddHotel() {
-        return isFullSet() && hotelCount == 0 && houseCount == 1;
+        return isFullSet() && hotelCard == null && houseCard != null;
     }
 
     private void clearUpgrades() {
-        houseCount = 0;
-        hotelCount = 0;
+        houseCard = null;
+        hotelCard = null;
     }
 
     public int calculateRent() {
@@ -98,21 +144,32 @@ public class PropertySet {
             return 0;
         }
         int rent = color.getRent(cards.size());
-        rent += houseCount * 3;
-        rent += hotelCount * 4;
+        if (isFullSet()) {
+            rent += getHouseCount() * 3;
+            rent += getHotelCount() * 4;
+        }
         return rent;
     }
 
     public void transferUpgradesTo(PropertySet target) {
-        target.houseCount += houseCount;
-        target.hotelCount += hotelCount;
-        if (target.houseCount > 1) target.houseCount = 1;
-        if (target.hotelCount > 1) target.hotelCount = 1;
+        if (houseCard != null && target.houseCard == null) {
+            target.houseCard = houseCard;
+        }
+        if (hotelCard != null && target.hotelCard == null) {
+            target.hotelCard = hotelCard;
+        }
         clearUpgrades();
+    }
+
+    public void restore(List<Card> propertyCards, ActionCard houseCard, ActionCard hotelCard) {
+        cards.clear();
+        cards.addAll(propertyCards);
+        this.houseCard = houseCard;
+        this.hotelCard = hotelCard;
     }
 
     public String summary() {
         return color.getName() + " set: " + cards.size() + "/" + color.getSize() +
-                ", rent=" + calculateRent() + "M, house=" + houseCount + ", hotel=" + hotelCount;
+                ", rent=" + calculateRent() + "M, house=" + getHouseCount() + ", hotel=" + getHotelCount();
     }
 }

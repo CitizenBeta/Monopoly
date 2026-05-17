@@ -3,7 +3,9 @@ package ie.ucd.monopolydeal.game;
 import ie.ucd.monopolydeal.model.*;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 public class Game {
     private List<Player> players = new ArrayList<>();
@@ -100,7 +102,9 @@ public class Game {
             return false;
         }
 
+        GameSnapshot snapshot = new GameSnapshot();
         if (!playSpecificCard(current, card, dm)) {
+            snapshot.restore();
             return false;
         }
 
@@ -158,8 +162,8 @@ public class Game {
             case SLY_DEAL -> playSlyDeal(player, dm);
             case FORCED_DEAL -> playForcedDeal(player, dm);
             case DEAL_BREAKER -> playDealBreaker(player, dm);
-            case HOUSE -> playHouse(player, dm);
-            case HOTEL -> playHotel(player, dm);
+            case HOUSE -> playHouse(player, action, dm);
+            case HOTEL -> playHotel(player, action, dm);
             case JUST_SAY_NO -> false;
         };
     }
@@ -170,7 +174,7 @@ public class Game {
     }
 
     private boolean playDebtCollector(Player player, DecisionMaker dm) {
-        List<Player> targets = playersWithPaymentOptions();
+        List<Player> targets = playersWithPaymentOptions(player);
         Player target = dm.selectNextPlayer(player, targets, "Choose a player to pay you 5M.");
         if (target == null) {
             return false;
@@ -180,7 +184,7 @@ public class Game {
     }
 
     private boolean playBirthday(Player player, DecisionMaker dm) {
-        List<Player> targets = playersWithPaymentOptions();
+        List<Player> targets = playersWithPaymentOptions(player);
         if (targets.isEmpty()) {
             return false;
         }
@@ -210,7 +214,7 @@ public class Game {
         }
 
         if (action.getActionType() == ActionType.MULTI_RENT) {
-            List<Player> targets = playersWithPaymentOptions();
+            List<Player> targets = playersWithPaymentOptions(player);
             Player target = dm.selectNextPlayer(player, targets, "Choose a player to pay " + amount + "M rent.");
             if (target == null) {
                 return false;
@@ -220,7 +224,7 @@ public class Game {
 
         boolean hasPayer = false;
         for (Player target : getOtherPlayers()) {
-            if (!hasPaymentOptions(target)) {
+            if (!hasPaymentOptions(target, player)) {
                 continue;
             }
 
@@ -299,7 +303,7 @@ public class Game {
             return false;
         }
 
-        return transferPropertyCard(target, player, card);
+        return transferPropertyCard(target, player, card, dm);
     }
 
     private boolean playForcedDeal(Player player, DecisionMaker dm) {
@@ -325,7 +329,7 @@ public class Game {
             return false;
         }
 
-        return swapProperties(player, ownCard, target, targetCard);
+        return swapProperties(player, ownCard, target, targetCard, dm);
     }
 
     private boolean playDealBreaker(Player player, DecisionMaker dm) {
@@ -348,22 +352,22 @@ public class Game {
         return target.transferFullSetTo(player, color);
     }
 
-    private boolean playHouse(Player player, DecisionMaker dm) {
+    private boolean playHouse(Player player, ActionCard house, DecisionMaker dm) {
         List<PropertyColor> colors = buildableColors(player, true);
         PropertyColor color = dm.selectColor("Choose a full set for House.", colors);
         if (color == null) {
             return false;
         }
-        return player.addHouse(color);
+        return player.addHouse(color, house);
     }
 
-    private boolean playHotel(Player player, DecisionMaker dm) {
+    private boolean playHotel(Player player, ActionCard hotel, DecisionMaker dm) {
         List<PropertyColor> colors = buildableColors(player, false);
         PropertyColor color = dm.selectColor("Choose a full set for Hotel.", colors);
         if (color == null) {
             return false;
         }
-        return player.addHotel(color);
+        return player.addHotel(color, hotel);
     }
 
     private List<PropertyColor> buildableColors(Player player, boolean house) {
@@ -397,7 +401,7 @@ public class Game {
             return true;
         }
 
-        List<Card> options = paymentOptions(payer);
+        List<Card> options = paymentOptions(payer, receiver);
         if (options.isEmpty()) {
             return false;
         }
@@ -424,25 +428,57 @@ public class Game {
         }
 
         for (Card selected : uniqueCards) {
-            if (!transferPaymentCard(payer, receiver, selected)) {
+            if (!transferPaymentCard(payer, receiver, selected, dm)) {
                 return false;
             }
         }
         return true;
     }
 
-    private List<Player> playersWithPaymentOptions() {
+    public boolean canPlayCard(Card card) {
+        if (!started || gameOver || card == null) {
+            return false;
+        }
+
+        Player current = getCurrPlayer();
+        if (!current.getCardsAtHand().contains(card)) {
+            return false;
+        }
+
+        if (actionsUsed >= Player.MAX_ACTIONS_PER_TURN) {
+            return false;
+        }
+
+        if (card instanceof PropertyCard propertyCard) {
+            PropertySet set = current.getPropertySets().get(propertyCard.getColor());
+            return set != null && set.canAddProperty();
+        }
+
+        if (card instanceof WildPropertyCard wildCard) {
+            for (PropertyColor color : wildCard.getPossibleColors()) {
+                PropertySet set = current.getPropertySets().get(color);
+                if (set != null && set.canAddProperty()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return card instanceof MoneyCard || card instanceof ActionCard;
+    }
+
+    private List<Player> playersWithPaymentOptions(Player receiver) {
         List<Player> targets = new ArrayList<>();
         for (Player player : getOtherPlayers()) {
-            if (hasPaymentOptions(player)) {
+            if (hasPaymentOptions(player, receiver)) {
                 targets.add(player);
             }
         }
         return targets;
     }
 
-    private boolean hasPaymentOptions(Player player) {
-        return !paymentOptions(player).isEmpty();
+    private boolean hasPaymentOptions(Player player, Player receiver) {
+        return !paymentOptions(player, receiver).isEmpty();
     }
 
     private int totalValue(List<Card> cards) {
@@ -453,16 +489,20 @@ public class Game {
         return total;
     }
 
-    private List<Card> paymentOptions(Player player) {
+    private List<Card> paymentOptions(Player player, Player receiver) {
         List<Card> options = new ArrayList<>();
         options.addAll(player.getCardsAtBank());
         for (PropertySet set : player.getPropertySets().values()) {
-            options.addAll(set.getCards());
+            for (Card card : set.getAllCards()) {
+                if (canTransferPaymentCard(player, receiver, card)) {
+                    options.add(card);
+                }
+            }
         }
         return options;
     }
 
-    private boolean transferPaymentCard(Player payer, Player receiver, Card card) {
+    private boolean transferPaymentCard(Player payer, Player receiver, Card card, DecisionMaker dm) {
         if (payer.getCardsAtBank().contains(card)) {
             if (!payer.removeCardFromBank(card)) {
                 return false;
@@ -471,12 +511,21 @@ public class Game {
             return true;
         }
 
-        return transferPropertyCard(payer, receiver, card);
+        return transferPropertyCard(payer, receiver, card, dm);
     }
 
-    private boolean transferPropertyCard(Player source, Player receiver, Card card) {
-        PropertyColor color = source.getPropertyColor(card);
-        if (!canReceiveProperty(receiver, card, color)) {
+    private boolean transferPropertyCard(Player source, Player receiver, Card card, DecisionMaker dm) {
+        PropertyColor sourceColor = source.getPropertyColor(card);
+        if (sourceColor == null) {
+            return false;
+        }
+
+        if (card instanceof ActionCard actionCard) {
+            return transferUpgradeCard(source, receiver, actionCard, sourceColor);
+        }
+
+        PropertyColor receiveColor = chooseReceiveColor(receiver, card, dm);
+        if (receiveColor == null) {
             return false;
         }
 
@@ -484,15 +533,44 @@ public class Game {
             return false;
         }
 
-        if (!receiver.receivePropertyCard(card, color)) {
-            source.receivePropertyCard(card, color);
-            return false;
-        }
-
+        receiver.receivePropertyCard(card, receiveColor);
         return true;
     }
 
-    private boolean swapProperties(Player firstPlayer, Card firstCard, Player secondPlayer, Card secondCard) {
+    private boolean transferUpgradeCard(Player source, Player receiver, ActionCard card, PropertyColor color) {
+        PropertySet receiverSet = receiver.getPropertySets().get(color);
+        if (receiverSet == null) {
+            return false;
+        }
+
+        boolean canReceive = false;
+        if (card.getActionType() == ActionType.HOUSE && receiverSet.canAddHouse()) {
+            canReceive = true;
+        }
+        if (card.getActionType() == ActionType.HOTEL && receiverSet.canAddHotel()) {
+            canReceive = true;
+        }
+        if (!canReceive) {
+            return false;
+        }
+
+        PropertySet sourceSet = source.getPropertySets().get(color);
+        if (card.getActionType() == ActionType.HOUSE && sourceSet != null && sourceSet.getHotelCard() != null) {
+            return false;
+        }
+
+        if (!source.removePropertyCard(card)) {
+            return false;
+        }
+
+        if (card.getActionType() == ActionType.HOUSE) {
+            return receiverSet.addHouse(card);
+        }
+
+        return receiverSet.addHotel(card);
+    }
+
+    private boolean swapProperties(Player firstPlayer, Card firstCard, Player secondPlayer, Card secondCard, DecisionMaker dm) {
         PropertyColor firstColor = firstPlayer.getPropertyColor(firstCard);
         PropertyColor secondColor = secondPlayer.getPropertyColor(secondCard);
 
@@ -504,38 +582,29 @@ public class Game {
             return false;
         }
 
+        PropertyColor firstReceiveColor = chooseReceiveColorAfterRemoving(firstPlayer, secondCard, firstCard, dm);
+        if (firstReceiveColor == null) {
+            return false;
+        }
+
+        PropertyColor secondReceiveColor = chooseReceiveColorAfterRemoving(secondPlayer, firstCard, secondCard, dm);
+        if (secondReceiveColor == null) {
+            return false;
+        }
+
         firstPlayer.removePropertyCard(firstCard);
         secondPlayer.removePropertyCard(secondCard);
-        firstPlayer.receivePropertyCard(secondCard, secondColor);
-        secondPlayer.receivePropertyCard(firstCard, firstColor);
+        firstPlayer.receivePropertyCard(secondCard, firstReceiveColor);
+        secondPlayer.receivePropertyCard(firstCard, secondReceiveColor);
         return true;
     }
 
     private boolean canReceiveAfterRemoving(Player receiver, Card incoming, PropertyColor incomingColor, Card outgoing) {
-        if (!isValidPropertyColor(incoming, incomingColor)) {
-            return false;
-        }
-
-        PropertySet set = receiver.getPropertySets().get(incomingColor);
-        if (set == null) {
-            return false;
-        }
-
-        int count = set.getCards().size();
-        if (receiver.getPropertyColor(outgoing) == incomingColor) {
-            count--;
-        }
-
-        return count < incomingColor.getSize();
+        return !receivableColorsAfterRemoving(receiver, incoming, outgoing).isEmpty();
     }
 
     private boolean canReceiveProperty(Player receiver, Card card, PropertyColor color) {
-        if (!isValidPropertyColor(card, color)) {
-            return false;
-        }
-
-        PropertySet set = receiver.getPropertySets().get(color);
-        return set != null && set.canAddProperty();
+        return receivableColors(receiver, card).contains(color);
     }
 
     private boolean isValidPropertyColor(Card card, PropertyColor color) {
@@ -552,6 +621,120 @@ public class Game {
         }
 
         return false;
+    }
+
+    private boolean canTransferPaymentCard(Player source, Player receiver, Card card) {
+        PropertyColor color = source.getPropertyColor(card);
+        if (color == null) {
+            return false;
+        }
+
+        if (card instanceof ActionCard actionCard) {
+            PropertySet set = receiver.getPropertySets().get(color);
+            if (set == null) {
+                return false;
+            }
+
+            if (actionCard.getActionType() == ActionType.HOUSE) {
+                PropertySet sourceSet = source.getPropertySets().get(color);
+                if (sourceSet != null && sourceSet.getHotelCard() != null) {
+                    return false;
+                }
+                return set.canAddHouse();
+            }
+
+            if (actionCard.getActionType() == ActionType.HOTEL) {
+                return set.canAddHotel();
+            }
+
+            return false;
+        }
+
+        return !receivableColors(receiver, card).isEmpty();
+    }
+
+    private PropertyColor chooseReceiveColor(Player receiver, Card card, DecisionMaker dm) {
+        List<PropertyColor> colors = receivableColors(receiver, card);
+        if (colors.isEmpty()) {
+            return null;
+        }
+
+        if (colors.size() == 1) {
+            return colors.getFirst();
+        }
+
+        return dm.selectColor("Choose a color for " + card.getName() + " in " + receiver.getName() + "'s table.", colors);
+    }
+
+    private PropertyColor chooseReceiveColorAfterRemoving(Player receiver, Card incoming, Card outgoing, DecisionMaker dm) {
+        List<PropertyColor> colors = receivableColorsAfterRemoving(receiver, incoming, outgoing);
+        if (colors.isEmpty()) {
+            return null;
+        }
+
+        if (colors.size() == 1) {
+            return colors.getFirst();
+        }
+
+        return dm.selectColor("Choose a color for " + incoming.getName() + " in " + receiver.getName() + "'s table.", colors);
+    }
+
+    private List<PropertyColor> receivableColors(Player receiver, Card card) {
+        List<PropertyColor> colors = new ArrayList<>();
+        if (card instanceof PropertyCard propertyCard) {
+            addReceivableColor(receiver, colors, propertyCard.getColor());
+        }
+
+        if (card instanceof WildPropertyCard wildCard) {
+            for (PropertyColor color : wildCard.getPossibleColors()) {
+                addReceivableColor(receiver, colors, color);
+            }
+        }
+
+        return colors;
+    }
+
+    private List<PropertyColor> receivableColorsAfterRemoving(Player receiver, Card incoming, Card outgoing) {
+        List<PropertyColor> colors = new ArrayList<>();
+        List<PropertyColor> sourceColors = possiblePropertyColors(incoming);
+
+        for (PropertyColor color : sourceColors) {
+            PropertySet set = receiver.getPropertySets().get(color);
+            if (set == null) {
+                continue;
+            }
+
+            int count = set.getCards().size();
+            if (receiver.getPropertyColor(outgoing) == color) {
+                count--;
+            }
+
+            if (count < color.getSize()) {
+                colors.add(color);
+            }
+        }
+
+        return colors;
+    }
+
+    private List<PropertyColor> possiblePropertyColors(Card card) {
+        List<PropertyColor> colors = new ArrayList<>();
+        if (card instanceof PropertyCard propertyCard) {
+            colors.add(propertyCard.getColor());
+        }
+
+        if (card instanceof WildPropertyCard wildCard) {
+            colors.addAll(wildCard.getPossibleColors());
+        }
+
+        return colors;
+    }
+
+    private void addReceivableColor(Player receiver, List<PropertyColor> colors, PropertyColor color) {
+        PropertySet set = receiver.getPropertySets().get(color);
+        if (set != null && set.canAddProperty()) {
+            colors.add(color);
+        }
     }
 
     private List<Player> playersForForcedDeal(Player player) {
@@ -620,7 +803,7 @@ public class Game {
 
         target.removeCardFromHand(justSayNo);
         addUsedCard(target, justSayNo, CardAction.PLAYED);
-        return true;
+        return !isBlockedByJustSayNo(actor, target, dm);
     }
 
     private ActionCard findJustSayNo(Player player) {
@@ -707,6 +890,98 @@ public class Game {
     private void addUsedCard(Player player, Card card, CardAction action) {
         usedCards.addFirst(new UsedCard(action, player.getName(), card));
     }
+
+    private class GameSnapshot {
+        private final int savedCurrentPlayerIndex;
+        private final int savedActionsUsed;
+        private final int savedTurnCount;
+        private final boolean savedStarted;
+        private final boolean savedGameOver;
+        private final List<UsedCard> savedUsedCards;
+        private final List<PlayerSnapshot> savedPlayers;
+
+        private GameSnapshot() {
+            savedCurrentPlayerIndex = currentPlayerIndex;
+            savedActionsUsed = actionsUsed;
+            savedTurnCount = turnCount;
+            savedStarted = started;
+            savedGameOver = gameOver;
+            savedUsedCards = new ArrayList<>(usedCards);
+            savedPlayers = new ArrayList<>();
+
+            for (Player player : players) {
+                savedPlayers.add(new PlayerSnapshot(player));
+            }
+        }
+
+        private void restore() {
+            currentPlayerIndex = savedCurrentPlayerIndex;
+            actionsUsed = savedActionsUsed;
+            turnCount = savedTurnCount;
+            started = savedStarted;
+            gameOver = savedGameOver;
+            usedCards = new ArrayList<>(savedUsedCards);
+
+            for (PlayerSnapshot snapshot : savedPlayers) {
+                snapshot.restore();
+            }
+        }
+    }
+
+    private static class PlayerSnapshot {
+        private final Player player;
+        private final List<Card> hand;
+        private final List<Card> bank;
+        private final Map<PropertyColor, PropertySetSnapshot> propertySets;
+        private final Map<WildPropertyCard, PropertyColor> wildColors;
+
+        private PlayerSnapshot(Player player) {
+            this.player = player;
+            hand = new ArrayList<>(player.getCardsAtHand());
+            bank = new ArrayList<>(player.getCardsAtBank());
+            propertySets = new EnumMap<>(PropertyColor.class);
+            wildColors = new java.util.HashMap<>();
+
+            rememberWildColors(player.getCardsAtHand());
+            rememberWildColors(player.getCardsAtBank());
+            for (Map.Entry<PropertyColor, PropertySet> entry : player.getPropertySets().entrySet()) {
+                PropertySet set = entry.getValue();
+                propertySets.put(entry.getKey(), new PropertySetSnapshot(
+                        new ArrayList<>(set.getCards()),
+                        set.getHouseCard(),
+                        set.getHotelCard()
+                ));
+                rememberWildColors(set.getAllCards());
+            }
+        }
+
+        private void rememberWildColors(List<Card> cards) {
+            for (Card card : cards) {
+                if (card instanceof WildPropertyCard wildCard) {
+                    wildColors.put(wildCard, wildCard.getCurrentColor());
+                }
+            }
+        }
+
+        private void restore() {
+            player.getCardsAtHand().clear();
+            player.getCardsAtHand().addAll(hand);
+            player.getCardsAtBank().clear();
+            player.getCardsAtBank().addAll(bank);
+
+            for (Map.Entry<PropertyColor, PropertySetSnapshot> entry : propertySets.entrySet()) {
+                PropertySet set = player.getPropertySets().get(entry.getKey());
+                PropertySetSnapshot snapshot = entry.getValue();
+                set.restore(new ArrayList<>(snapshot.cards()), snapshot.houseCard(), snapshot.hotelCard());
+            }
+
+            for (Map.Entry<WildPropertyCard, PropertyColor> entry : wildColors.entrySet()) {
+                entry.getKey().setCurrentColor(entry.getValue());
+            }
+        }
+    }
+
+    private record PropertySetSnapshot(List<Card> cards, ActionCard houseCard, ActionCard hotelCard) {}
 
     public enum CardAction {
         PLAYED("Played"),
