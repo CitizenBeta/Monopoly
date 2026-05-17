@@ -10,6 +10,6 @@ public interface DecisionMaker {
     WildPropertyCard selectWildCardToMove(Player current, List<WildPropertyCard> wildCards);
     List<Card> selectDiscards(Player current, List<Card> cards, int count);
     Card selectPropertyCard(Player owner, List<Card> cards, String prompt);
-    Card selectPaymentCard(Player owner, List<Card> cards, String prompt);
+    List<Card> selectPaymentCards(Player owner, List<Card> cards, int amount);
     boolean reconfirm(String prompt);
 }

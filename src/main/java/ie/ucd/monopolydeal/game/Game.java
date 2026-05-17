@@ -170,7 +170,8 @@ public class Game {
     }
 
     private boolean playDebtCollector(Player player, DecisionMaker dm) {
-        Player target = dm.selectNextPlayer(player, getOtherPlayers(), "Choose a player to pay you 5M.");
+        List<Player> targets = playersWithPaymentOptions();
+        Player target = dm.selectNextPlayer(player, targets, "Choose a player to pay you 5M.");
         if (target == null) {
             return false;
         }
@@ -179,7 +180,12 @@ public class Game {
     }
 
     private boolean playBirthday(Player player, DecisionMaker dm) {
-        for (Player target : getOtherPlayers()) {
+        List<Player> targets = playersWithPaymentOptions();
+        if (targets.isEmpty()) {
+            return false;
+        }
+
+        for (Player target : targets) {
             if (!collectPayment(target, player, 2, dm)) {
                 return false;
             }
@@ -204,19 +210,26 @@ public class Game {
         }
 
         if (action.getActionType() == ActionType.MULTI_RENT) {
-            Player target = dm.selectNextPlayer(player, getOtherPlayers(), "Choose a player to pay " + amount + "M rent.");
+            List<Player> targets = playersWithPaymentOptions();
+            Player target = dm.selectNextPlayer(player, targets, "Choose a player to pay " + amount + "M rent.");
             if (target == null) {
                 return false;
             }
             return collectPayment(target, player, amount, dm);
         }
 
+        boolean hasPayer = false;
         for (Player target : getOtherPlayers()) {
+            if (!hasPaymentOptions(target)) {
+                continue;
+            }
+
+            hasPayer = true;
             if (!collectPayment(target, player, amount, dm)) {
                 return false;
             }
         }
-        return true;
+        return hasPayer;
     }
 
     private PropertyColor chooseRentColor(DecisionMaker dm, List<PropertyColor> colors) {
@@ -386,29 +399,58 @@ public class Game {
 
         List<Card> options = paymentOptions(payer);
         if (options.isEmpty()) {
-            return true;
+            return false;
         }
 
-        List<Card> selectedCards = new ArrayList<>();
+        int requiredAmount = Math.min(amount, totalValue(options));
+        List<Card> selectedCards = dm.selectPaymentCards(payer, options, requiredAmount);
+        if (selectedCards == null || selectedCards.isEmpty()) {
+            return false;
+        }
+
+        List<Card> uniqueCards = new ArrayList<>();
         int paid = 0;
-        while (paid < amount && !options.isEmpty()) {
-            Card selected = dm.selectPaymentCard(payer, options,
-                    payer.getName() + " must pay " + amount + "M. Selected " + paid + "M.");
-            if (selected == null || !options.contains(selected)) {
+        for (Card selected : selectedCards) {
+            if (!options.contains(selected) || uniqueCards.contains(selected)) {
                 return false;
             }
 
-            selectedCards.add(selected);
-            options.remove(selected);
+            uniqueCards.add(selected);
             paid += selected.getBankValue();
         }
 
-        for (Card selected : selectedCards) {
+        if (paid < requiredAmount) {
+            return false;
+        }
+
+        for (Card selected : uniqueCards) {
             if (!transferPaymentCard(payer, receiver, selected)) {
                 return false;
             }
         }
         return true;
+    }
+
+    private List<Player> playersWithPaymentOptions() {
+        List<Player> targets = new ArrayList<>();
+        for (Player player : getOtherPlayers()) {
+            if (hasPaymentOptions(player)) {
+                targets.add(player);
+            }
+        }
+        return targets;
+    }
+
+    private boolean hasPaymentOptions(Player player) {
+        return !paymentOptions(player).isEmpty();
+    }
+
+    private int totalValue(List<Card> cards) {
+        int total = 0;
+        for (Card card : cards) {
+            total += card.getBankValue();
+        }
+        return total;
     }
 
     private List<Card> paymentOptions(Player player) {
