@@ -136,6 +136,12 @@ public class Deck {
         }
     }
 
+    public void putAtDrawPileBottom(Card card) {
+        if (card != null) {
+            drawPile.add(0, card);
+        }
+    }
+
     public int getDrawPileCount() {
         return drawPile.size();
     }

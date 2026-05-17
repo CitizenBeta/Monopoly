@@ -261,6 +261,10 @@ public class Game {
     }
 
     private boolean playDoubleRent(Player player, ActionCard doubleRent, DecisionMaker dm) {
+        if (actionsUsed + 2 > Player.MAX_ACTIONS_PER_TURN) {
+            return false;
+        }
+
         List<Card> rentCards = new ArrayList<>();
         for (Card card : player.getCardsAtHand()) {
             if (card instanceof ActionCard actionCard && card != doubleRent && isRentCard(actionCard)) {
@@ -279,6 +283,7 @@ public class Game {
 
         player.removeCardFromHand(rentCard);
         addUsedCard(player, rentCard, CardAction.PLAYED);
+        actionsUsed++;
         return true;
     }
 
@@ -849,7 +854,7 @@ public class Game {
 
             for (Card discard : discards) {
                 currPlayer.removeCardFromHand(discard);
-                deck.discard(discard);
+                deck.putAtDrawPileBottom(discard);
                 addUsedCard(currPlayer, discard, CardAction.DISCARDED);
             }
         }

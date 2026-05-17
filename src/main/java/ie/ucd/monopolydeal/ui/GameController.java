@@ -1047,7 +1047,11 @@ public class GameController implements DecisionMaker {
     private void applyActionButtonStyle(Button button, Color color, boolean isFilled) {
         if (button.isDisabled()) {
             button.setTextFill(Color.rgb(100, 116, 139));
-            button.setBackground(setSolidBackground(Color.rgb(226, 232, 240)));
+            if (isFilled) {
+                button.setBackground(setSolidBackground(Color.rgb(226, 232, 240)));
+            } else {
+                button.setBackground(setSolidBackground(Color.WHITE));
+            }
             button.setBorder(roundCorner(Color.rgb(203, 213, 225)));
             return;
         }
