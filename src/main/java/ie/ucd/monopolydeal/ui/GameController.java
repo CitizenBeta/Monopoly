@@ -16,6 +16,7 @@ import javafx.scene.text.TextAlignment;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 public class GameController implements DecisionMaker {
@@ -228,6 +229,31 @@ public class GameController implements DecisionMaker {
     // Run when the user presses Move wild button
     @FXML
     private void onMoveWild() {
+        if (!game.isStarted()) {
+            return;
+        }
+
+        Player current = game.getCurrPlayer();
+        WildPropertyCard wildCard = selectWildCardToMove(current, current.getPlacedWildCards());
+        if (wildCard == null) {
+            return;
+        }
+
+        PropertyColor oldColor = wildCard.getCurrentColor();
+        PropertyColor newColor = selectColor("Move " + wildCard.getName() + " to:", wildCard.getPossibleColors());
+        if (newColor == null) {
+            return;
+        }
+
+        current.moveExistingWild(wildCard, newColor);
+        if (wildCard.getCurrentColor() != oldColor && wildCard.getCurrentColor() == newColor) {
+            statusText.setText("Moved wild card.");
+        } else {
+            statusText.setText("Wild card not moved.");
+        }
+
+        selectedCard = null;
+        refresh();
     }
 
     @FXML
@@ -327,12 +353,17 @@ public class GameController implements DecisionMaker {
     // Find the player who have highest completed sets, then highest bank total
     private String leadingPlayer() {
         Player highestPlayer = null;
+        int highestSets = -1;
         int highestBank = -1;
 
         for (Player player : game.getPlayers()) {
-            if (player.getBankTotalValue() > highestBank) {
+            int completedSets = player.countCompletedSets();
+            int bankTotal = player.getBankTotalValue();
+
+            if (completedSets > highestSets || (completedSets == highestSets && bankTotal > highestBank)) {
                 highestPlayer = player;
-                highestBank = player.getBankTotalValue();
+                highestSets = completedSets;
+                highestBank = bankTotal;
             }
         }
 
@@ -689,7 +720,7 @@ public class GameController implements DecisionMaker {
                 8,
                 newBadge("Hand " + player.getCardsAtHand().size()),
                 newBadge("Bank " + player.getBankTotalValue() + "M"),
-                newBadge("Sets 0/3")
+                newBadge("Sets " + player.countCompletedSets() + "/3")
         );
         summaryBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -725,11 +756,22 @@ public class GameController implements DecisionMaker {
         Label propertiesTitle = new Label("Properties");
         propertiesTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
         propertiesTitle.setTextFill(Color.rgb(71, 85, 105));
+        properties.getChildren().add(propertiesTitle);
 
-        Label emptyProperties = new Label("No properties in play.");
-        emptyProperties.setWrapText(true);
-        emptyProperties.setTextFill(Color.rgb(100, 116, 139));
-        properties.getChildren().addAll(propertiesTitle, emptyProperties);
+        boolean hasProperties = false;
+        for (PropertySet propertySet : player.getPropertySets().values()) {
+            if (!propertySet.getCards().isEmpty()) {
+                hasProperties = true;
+                properties.getChildren().add(newPropertySetBox(propertySet));
+            }
+        }
+
+        if (!hasProperties) {
+            Label emptyProperties = new Label("No properties in play.");
+            emptyProperties.setWrapText(true);
+            emptyProperties.setTextFill(Color.rgb(100, 116, 139));
+            properties.getChildren().add(emptyProperties);
+        }
 
         VBox box = new VBox(8, header, new Separator(), bank, properties);
         box.setPadding(new Insets(12));
@@ -748,6 +790,43 @@ public class GameController implements DecisionMaker {
             box.setBorder(roundCorner(Color.rgb(203, 213, 225)));
         }
 
+        return box;
+    }
+
+    private VBox newPropertySetBox(PropertySet propertySet) {
+        PropertyColor color = propertySet.getColor();
+
+        Label colorName = new Label(color.getName());
+        colorName.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+        colorName.setTextFill(Color.rgb(71, 85, 105));
+
+        Label rent = newBadge("Rent " + propertySet.calculateRent() + "M");
+
+        HBox header = new HBox(6, colorName, rent);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        FlowPane cards = new FlowPane(6, 6);
+        for (Card card : propertySet.getCards()) {
+            cards.getChildren().add(newPropertyMiniBox(card, color));
+        }
+
+        VBox box = new VBox(4, header, cards);
+        box.setPadding(new Insets(4, 0, 0, 0));
+        return box;
+    }
+
+    private HBox newPropertyMiniBox(Card card, PropertyColor color) {
+        Label name = new Label(card.getName());
+        name.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+        name.setTextFill(Color.rgb(15, 23, 42));
+        name.setWrapText(true);
+        name.setMaxWidth(120);
+
+        HBox box = new HBox(8, newColorBar(propertyColor(color), 4, 20, true), name);
+        box.setAlignment(Pos.CENTER_LEFT);
+        box.setPadding(new Insets(5, 10, 5, 9));
+        box.setBackground(setSolidBackground(Color.WHITE));
+        box.setBorder(roundCorner(Color.rgb(203, 213, 225)));
         return box;
     }
 
@@ -797,7 +876,11 @@ public class GameController implements DecisionMaker {
         // Play selected card is available when,
         // the game has started, has selected a card, has not used all 3 actions
         playButton.setDisable(!game.isStarted() || selectedCard == null || game.getActionsUsed() >= Player.MAX_ACTIONS_PER_TURN);
-        moveWildButton.setDisable(true);
+        boolean canMoveWild = false;
+        if (game.isStarted()) {
+            canMoveWild = !game.getCurrPlayer().getPlacedWildCards().isEmpty();
+        }
+        moveWildButton.setDisable(!canMoveWild);
         endTurnButton.setDisable(!game.isStarted());
     }
 
@@ -909,10 +992,75 @@ public class GameController implements DecisionMaker {
         return new Border(new BorderStroke(color, BorderStrokeStyle.SOLID, new CornerRadii(12), new BorderWidths(1)));
     }
 
-    @Override public Player selectNextPlayer(Player currentPlayer, List<Player> players, String prompt) { return null; }
-    @Override public PropertyColor selectColor(String prompt, List<PropertyColor> players) { return null; }
-    @Override public UseMode useCard(ActionCard action) { return null; }
-    @Override public WildPropertyCard selectWildCardToMove(Player current, List<WildPropertyCard> wildCards) { return null; }
+    private <T> T chooseOption(String title, String prompt, List<T> options, Function<T, String> text) {
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+
+        Dialog<T> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText(prompt);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        ListView<T> listView = new ListView<>(FXCollections.observableArrayList(options));
+        listView.setPrefSize(360, Math.min(260, Math.max(120, options.size() * 34 + 12)));
+        listView.setCellFactory(view -> new ListCell<>() {
+            @Override
+            protected void updateItem(T item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(text.apply(item));
+                }
+            }
+        });
+        listView.getSelectionModel().selectFirst();
+
+        Button okButton = (Button) dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.disableProperty().bind(listView.getSelectionModel().selectedItemProperty().isNull());
+
+        dialog.getDialogPane().setContent(listView);
+        dialog.setResultConverter(button -> {
+            if (button == ButtonType.OK) {
+                return listView.getSelectionModel().getSelectedItem();
+            }
+            return null;
+        });
+
+        return dialog.showAndWait().orElse(null);
+    }
+
+    @Override
+    public Player selectNextPlayer(Player currentPlayer, List<Player> players, String prompt) {
+        return chooseOption("Choose Player", prompt, players, Player::getName);
+    }
+
+    @Override
+    public PropertyColor selectColor(String prompt, List<PropertyColor> players) {
+        return chooseOption("Choose Color", prompt, players, PropertyColor::getName);
+    }
+
+    @Override
+    public UseMode useCard(ActionCard action) {
+        return chooseOption("Use Card", "How do you want to use " + action.getName() + "?", List.of(UseMode.PLAY, UseMode.BANK), mode -> {
+            if (mode == UseMode.PLAY) {
+                return "Play card";
+            }
+            return "Bank for " + action.getBankValue() + "M";
+        });
+    }
+
+    @Override
+    public WildPropertyCard selectWildCardToMove(Player current, List<WildPropertyCard> wildCards) {
+        return chooseOption("Move Wild", "Choose a wild card to move for " + current.getName(), wildCards, card -> {
+            if (card.getCurrentColor() == null) {
+                return card.getName() + " - Not selected";
+            }
+            return card.getName() + " - " + card.getCurrentColor().getName();
+        });
+    }
+
     @Override
     public List<Card> selectDiscards(Player current, List<Card> cards, int count) {
         if (cards.isEmpty()) {
@@ -983,7 +1131,20 @@ public class GameController implements DecisionMaker {
         return card.getName();
     }
 
-    @Override public Card selectPropertyCard(Player owner, List<Card> cards, String prompt) { return null; }
-    @Override public Card selectPaymentCard(Player owner, List<Card> cards, String prompt) { return null; }
-    @Override public boolean reconfirm(String prompt) { return false; }
+    @Override
+    public Card selectPropertyCard(Player owner, List<Card> cards, String prompt) {
+        return chooseOption("Choose Property", prompt, cards, Card::getName);
+    }
+
+    @Override
+    public Card selectPaymentCard(Player owner, List<Card> cards, String prompt) {
+        return chooseOption("Choose Payment", prompt, cards, Card::getName);
+    }
+
+    @Override
+    public boolean reconfirm(String prompt) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setHeaderText(prompt);
+        return alert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
+    }
 }
