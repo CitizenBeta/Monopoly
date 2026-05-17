@@ -124,7 +124,7 @@
                             <font><Font name="Segoe UI Bold" size="17.0" /></font>
                         </Label>
                         <Separator />
-                        <ScrollPane fx:id="tableScroll" fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" pannable="true" VBox.vgrow="ALWAYS">
+                        <ScrollPane fx:id="tableScroll" fitToWidth="false" fitToHeight="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" pannable="true" VBox.vgrow="ALWAYS">
                             <content>
                                 <HBox fx:id="tableBox" alignment="TOP_CENTER" spacing="12.0" fillHeight="true">
                                     <padding>

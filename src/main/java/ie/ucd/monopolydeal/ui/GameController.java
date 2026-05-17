@@ -3,6 +3,7 @@ package ie.ucd.monopolydeal.ui;
 import ie.ucd.monopolydeal.game.DecisionMaker;
 import ie.ucd.monopolydeal.game.Game;
 import ie.ucd.monopolydeal.model.*;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -20,6 +21,8 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 public class GameController implements DecisionMaker {
+    private static final int MAX_VISIBLE_PLAYERS = 3;
+
     private final Game game = new Game();
     private Card selectedCard = null;
 
@@ -94,9 +97,9 @@ public class GameController implements DecisionMaker {
         // Set player table area
         tableBox.setFillHeight(true);
         tableBox.setAlignment(Pos.TOP_CENTER);
-        tableScroll.setFitToWidth(true);
+        tableScroll.setFitToWidth(false);
         tableScroll.setFitToHeight(false);
-        tableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        tableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         tableScroll.setPannable(true);
         tableScroll.viewportBoundsProperty().addListener((_, _, bounds) -> resizeTableArea(bounds.getWidth(), bounds.getHeight()));
         tableScroll.setFocusTraversable(false);
@@ -719,10 +722,12 @@ public class GameController implements DecisionMaker {
         tableBox.setAlignment(Pos.TOP_CENTER);
         for (Player player : players) {
             VBox playerBox = newPlayerBox(player);
-            playerBox.setPrefWidth(0);
-            HBox.setHgrow(playerBox, Priority.ALWAYS);
+            HBox.setHgrow(playerBox, Priority.NEVER);
             tableBox.getChildren().add(playerBox);
         }
+
+        resizeTableArea(tableScroll.getViewportBounds().getWidth(), tableScroll.getViewportBounds().getHeight());
+        Platform.runLater(this::scrollTableToCurrentPlayer);
     }
 
     // Create a player box for each player
@@ -984,13 +989,83 @@ public class GameController implements DecisionMaker {
     }
 
     private void resizeTableArea(double width, double height) {
-        tableBox.setMinWidth(width);
+        int playerCount = 0;
+        if (game.isStarted()) {
+            playerCount = game.getPlayers().size();
+        }
+
+        double contentWidth = tableContentWidth(width, playerCount);
+
+        tableBox.setMinWidth(contentWidth);
+        tableBox.setPrefWidth(contentWidth);
         tableBox.setMinHeight(height);
+
+        double playerWidth = tablePlayerWidth(width, playerCount);
         for (javafx.scene.Node child : tableBox.getChildren()) {
             if (child instanceof Region region) {
+                if (playerCount > 0 && !region.prefWidthProperty().isBound()) {
+                    region.setMinWidth(playerWidth);
+                    region.setPrefWidth(playerWidth);
+                    region.setMaxWidth(playerWidth);
+                }
                 region.setMinHeight(playerBoxMinHeight());
             }
         }
+    }
+
+    private double tablePlayerWidth(double viewportWidth, int playerCount) {
+        if (playerCount <= 0 || viewportWidth <= 0) {
+            return 0;
+        }
+
+        int visiblePlayers = Math.min(playerCount, MAX_VISIBLE_PLAYERS);
+        Insets padding = tableBox.getPadding();
+        double spacing = tableBox.getSpacing() * (visiblePlayers - 1);
+        double width = viewportWidth - padding.getLeft() - padding.getRight() - spacing;
+        return Math.max(260, width / visiblePlayers);
+    }
+
+    private double tableContentWidth(double viewportWidth, int playerCount) {
+        if (playerCount <= 0 || viewportWidth <= 0) {
+            return viewportWidth;
+        }
+
+        double playerWidth = tablePlayerWidth(viewportWidth, playerCount);
+        Insets padding = tableBox.getPadding();
+        double spacing = tableBox.getSpacing() * Math.max(0, playerCount - 1);
+        double contentWidth = padding.getLeft() + padding.getRight() + playerWidth * playerCount + spacing;
+        return Math.max(viewportWidth, contentWidth);
+    }
+
+    private void scrollTableToCurrentPlayer() {
+        if (!game.isStarted() || tableBox.getChildren().isEmpty()) {
+            tableScroll.setHvalue(0);
+            return;
+        }
+
+        List<Player> players = game.getPlayers();
+        int playerCount = players.size();
+        if (playerCount <= MAX_VISIBLE_PLAYERS) {
+            tableScroll.setHvalue(0);
+            return;
+        }
+
+        int currentIndex = players.indexOf(game.getCurrPlayer());
+        if (currentIndex < 0) {
+            tableScroll.setHvalue(0);
+            return;
+        }
+
+        int maxStartIndex = playerCount - MAX_VISIBLE_PLAYERS;
+        int startIndex = currentIndex - 1;
+        if (startIndex < 0) {
+            startIndex = 0;
+        }
+        if (startIndex > maxStartIndex) {
+            startIndex = maxStartIndex;
+        }
+
+        tableScroll.setHvalue((double) startIndex / maxStartIndex);
     }
 
     private double playerBoxMinHeight() {
